@@ -1,0 +1,8 @@
+-r base.txt
+
+# Production Server & Storage
+gunicorn>=23.0.0
+uvicorn[standard]>=0.30.0
+django-storages[s3]>=1.14.4
+boto3>=1.35.0
+sentry-sdk>=2.14.0

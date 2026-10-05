@@ -1,0 +1,30 @@
+# Core Django & DRF
+Django>=5.1,<5.2
+djangorestframework>=3.15.0,<3.16.0
+django-environ>=0.11.0
+django-cors-headers>=4.4.0
+
+# Database
+psycopg2-binary>=2.9.9
+dj-database-url>=2.2.0
+
+# Authentication & Security
+djangorestframework-simplejwt>=5.3.1
+cryptography>=43.0.0
+
+# Asynchronous & WebSockets
+channels>=4.1.0
+channels-redis>=4.2.0
+daphne>=4.1.0
+
+# Task Queue & Periodic Tasks
+celery>=5.4.0
+django-celery-beat>=2.7.0
+redis>=5.0.0
+
+# API Documentation & Schema
+drf-spectacular>=0.28.0
+
+# Utilities
+python-dateutil>=2.9.0
+pytz>=2024.1
