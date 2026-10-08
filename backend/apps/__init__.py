@@ -1,0 +1,1 @@
+"""EazyDoc domain applications package."""

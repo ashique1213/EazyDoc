@@ -1,8 +1,14 @@
 import { Link, Outlet } from "react-router-dom";
-import { Stethoscope, ShieldCheck } from "lucide-react";
+import { Stethoscope, ShieldCheck, UserCircle, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuthStore, useLogout, getRoleRedirectPath } from "@/features/auth";
 
 export function PublicLayout() {
+  const { user, isAuthenticated } = useAuthStore();
+  const logoutMutation = useLogout();
+
+  const dashboardPath = user ? getRoleRedirectPath(user.role) : "/login";
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Header */}
@@ -33,14 +39,36 @@ export function PublicLayout() {
           </nav>
 
           <div className="flex items-center space-x-3">
-            <Link to="/login">
-              <Button variant="ghost" size="sm">
-                Sign In
-              </Button>
-            </Link>
-            <Link to="/register">
-              <Button size="sm">Get Started</Button>
-            </Link>
+            {isAuthenticated && user ? (
+              <div className="flex items-center space-x-3">
+                <Link to={dashboardPath}>
+                  <Button size="sm" className="gap-2">
+                    <UserCircle className="h-4 w-4" />
+                    <span>Dashboard ({user.role})</span>
+                  </Button>
+                </Link>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => logoutMutation.mutate()}
+                  disabled={logoutMutation.isPending}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Link to="/login">
+                  <Button variant="ghost" size="sm">
+                    Sign In
+                  </Button>
+                </Link>
+                <Link to="/register">
+                  <Button size="sm">Get Started</Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
