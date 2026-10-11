@@ -8,6 +8,7 @@ import {
   LogOut,
   AlertTriangle,
   Loader2,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,15 +50,78 @@ export function DashboardLayout({ roleTitle = "Dashboard" }: DashboardLayoutProp
         </div>
 
         <nav className="flex-1 space-y-1">
-          <div className="flex items-center space-x-3 rounded-lg bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
-            <LayoutDashboard className="h-4 w-4" />
-            <span>Overview</span>
-          </div>
-          <div className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent cursor-pointer">
-            <Building2 className="h-4 w-4" />
-            <span>Clinics</span>
-          </div>
-          <div className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent cursor-pointer">
+          {user?.role === "CLINIC_OWNER" ? (
+            <>
+              <Link
+                to="/clinic/my-clinics"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors"
+              >
+                <Building2 className="h-4 w-4 text-primary" />
+                <span>My Clinics</span>
+              </Link>
+              <Link
+                to="/clinic/register"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                <span>Register Clinic</span>
+              </Link>
+            </>
+          ) : user?.role === "SUPER_ADMIN" ? (
+            <>
+              <Link
+                to="/admin"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors"
+              >
+                <LayoutDashboard className="h-4 w-4 text-primary" />
+                <span>Overview</span>
+              </Link>
+              <Link
+                to="/admin/clinics"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Building2 className="h-4 w-4" />
+                <span>Clinics Oversight</span>
+              </Link>
+              <Link
+                to="/admin/doctors"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Stethoscope className="h-4 w-4" />
+                <span>Doctors Oversight</span>
+              </Link>
+            </>
+          ) : user?.role === "DOCTOR" ? (
+            <>
+              <Link
+                to="/doctor"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors"
+              >
+                <LayoutDashboard className="h-4 w-4 text-primary" />
+                <span>Overview</span>
+              </Link>
+              <Link
+                to="/doctor/profile"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <UserCircle className="h-4 w-4" />
+                <span>Doctor Profile</span>
+              </Link>
+              <Link
+                to="/doctor/verification"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                <span>Verification Status</span>
+              </Link>
+            </>
+          ) : (
+            <div className="flex items-center space-x-3 rounded-lg bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
+              <LayoutDashboard className="h-4 w-4" />
+              <span>Overview</span>
+            </div>
+          )}
+          <div className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent cursor-pointer transition-colors">
             <UserCircle className="h-4 w-4" />
             <span>Profile</span>
           </div>

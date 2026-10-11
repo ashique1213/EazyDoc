@@ -52,6 +52,39 @@ Healthcare SaaS platforms operate under rigorous compliance requirements (includ
   ```
 - **UUID Keys:** All IDs are random UUIDv4, eliminating sequential enumeration attacks (e.g. `/api/v1/appointments/101` vs `/102`).
 
+### 3.3. Clinic Multi-Tenant Security & Verification Governance (Day 4)
+- **Role Gating:** Only authenticated users with `CLINIC_OWNER` or `SUPER_ADMIN` role can create clinics. Patients, Doctors, and Staff receive `403 Forbidden`.
+- **Tenant Isolation:** Clinic owners can list and retrieve only clinics they own (`owner = request.user`). Direct object lookups for another tenant's clinic ID yield `403 Forbidden` / `404 Not Found`.
+- **Protected Profile Fields:** Clinic owners cannot escalate privileges or alter governance metadata. Updates to `status`, `owner`, `approved_at`, `approved_by`, and `verification_notes` are discarded and protected at the serializer and view layers.
+- **Self-Approval Prevention:** In accordance with healthcare compliance guidelines, a clinic owner cannot approve their own clinic, even if they hold Super Admin status.
+- **Secure Logo Upload:**
+  - Files capped at 2MB.
+  - Whitelisted MIME types (`image/jpeg`, `image/png`, `image/webp`) and extensions.
+  - Pillow deep inspection verifies genuine image binary headers, rejecting disguised binaries or PHP/executable files.
+
+### 3.4. Doctor Identity Governance & Credential Privacy (Day 5)
+- **Role Gating:** Only authenticated users with `DOCTOR` role can create practitioner profiles and access `/api/v1/doctors/me/`. Non-doctor accounts receive `403 Forbidden`.
+- **Medical Registration Uniqueness & Normalization:**
+  - Physical database composite `UniqueConstraint(fields=["normalized_registration_council", "normalized_registration_number"])` prevents concurrent collisions.
+  - Whitespace is stripped and text uppercased at both the serializer and model layer, preventing bypass attempts using varied letter casing or whitespace padding.
+  - Scoped to issuing authority council: doctors with identical numbers issued by different legitimate state councils can coexist without collision.
+- **Verification Status Protection:**
+  - Doctors cannot alter their `verification_status`, `verified_by`, `verified_at`, `submitted_at`, or `verification_notes`.
+  - Permitted profile fields are strictly filtered via `DoctorProfileUpdateSerializer`.
+  - Only Super Admins can verify, reject, suspend, or reactivate doctors.
+  - Self-Approval Invariant: An administrator holding a doctor profile is prohibited from self-approving their own credentials.
+- **Privacy-Preserving Registration Lookup:**
+  - Clinic Owners can verify existence and eligibility via `GET /api/v1/doctors/registration-lookup/?registration_number=...`.
+  - Privacy Guarantees: Strictly returns only `found`, `full_name`, `specialization`, `registration_council`, `is_verified`, and `is_eligible_for_invitation`. Never leaks email, phone, documents, audit notes, or patient data.
+  - Access is restricted to `CLINIC_OWNER` and `SUPER_ADMIN`. Patients and anonymous users are blocked (`403` / `401`).
+- **Private Document Evidence Storage:**
+  - Verification documents (certificates, degrees, ID proofs) are stored in secure private storage (`doctor_documents/private/`).
+  - Public URLs are never generated or exposed. Files are streamed only through authenticated, authorized endpoints with object-level permission enforcement (`IsDoctorDocumentOwnerOrAdmin`).
+  - File upload integrity: 5MB size limit, extension whitelisting, MIME type validation, and Pillow binary verification on image uploads.
+- **Security Audit Trails:**
+  - Immutable audit logs record all critical practitioner actions (`DOCTOR_PROFILE_CREATED`, `DOCTOR_PROFILE_UPDATED`, `DOCTOR_SUBMITTED_VERIFICATION`, `DOCTOR_VERIFIED`, `DOCTOR_REJECTED`, `DOCTOR_SUSPENDED`, `DOCTOR_REACTIVATED`, `DOCTOR_DOCUMENT_UPLOADED`).
+  - Passwords, JWT tokens, and private clinical documents are sanitized and never written to application logs.
+
 ---
 
 ## 4. Payment Security & Fraud Prevention (Razorpay)

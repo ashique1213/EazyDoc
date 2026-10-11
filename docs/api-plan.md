@@ -50,35 +50,61 @@
 
 ---
 
-### 2.2. Clinics & Practice Management (`/api/v1/clinics/`)
+### 2.2. Clinics & Practice Management (`/api/v1/clinics/` & `/api/v1/admin/clinics/`)
 
+#### 2.2.1. Clinic Owner Endpoints
 | Method | Endpoint | Access Role | Description |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/clinics/` | Public | Search clinics by city, name, specialization |
-| `GET` | `/clinics/{id}/` | Public | Public clinic profile, doctors, address, contact |
-| `POST` | `/clinics/` | Clinic Owner | Register a new clinic (Status: `PENDING_VERIFICATION`) |
-| `PATCH`| `/clinics/{id}/` | Clinic Owner | Update clinic details, address, phone, logo |
-| `GET` | `/clinics/{id}/doctors/` | Public | List active doctors practicing at the clinic |
-| `POST` | `/clinics/{id}/invite-doctor/` | Clinic Owner | Search doctor by Reg No and send clinic invite |
-| `GET` | `/clinics/{id}/staff/` | Clinic Owner | List all clinic staff members |
-| `POST` | `/clinics/{id}/staff/` | Clinic Owner | Invite/create receptionist or clinic staff |
-| `DELETE`| `/clinics/{id}/staff/{staff_id}/` | Clinic Owner | Deactivate/remove clinic staff |
-| `GET` | `/clinics/{id}/analytics/` | Clinic Owner | Clinic revenue, appointment volume, cancellation metrics |
+| `POST` | `/clinics/` | Clinic Owner | Register clinic owned by auth user (Status: `PENDING` or `DRAFT`) |
+| `GET` | `/clinics/my-clinics/` | Clinic Owner | List only clinics owned by authenticated user |
+| `GET` | `/clinics/{id}/` | Owner / Super Admin | Retrieve clinic details with tenant isolation |
+| `PATCH`| `/clinics/{id}/` | Clinic Owner | Update permitted profile fields (name, phone, address, logo, etc.) |
+| `POST` | `/clinics/{id}/submit/` | Clinic Owner | Submit `DRAFT` or `REJECTED` clinic for Super Admin verification |
+
+#### 2.2.2. Super Admin Verification Endpoints
+| Method | Endpoint | Access Role | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/admin/clinics/` | Super Admin | List all clinics with status filtering and search pagination |
+| `GET` | `/admin/clinics/{id}/` | Super Admin | Inspect full clinic details, owner info, and verification notes |
+| `POST` | `/admin/clinics/{id}/approve/` | Super Admin | Approve pending clinic (Owner cannot self-approve) |
+| `POST` | `/admin/clinics/{id}/reject/` | Super Admin | Reject pending clinic with mandatory feedback reason |
+| `POST` | `/admin/clinics/{id}/suspend/` | Super Admin | Suspend approved clinic with mandatory reason |
+| `POST` | `/admin/clinics/{id}/reactivate/` | Super Admin | Reactivate suspended clinic back to `APPROVED` |
 
 ---
 
-### 2.3. Doctors & Specializations (`/api/v1/doctors/`)
+### 2.3. Doctors & Verification Management (`/api/v1/doctors/`)
 
 | Method | Endpoint | Access Role | Description |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/specializations/` | Public | List all medical specializations |
-| `GET` | `/doctors/` | Public | Search verified doctors (by name, specialty, city) |
-| `GET` | `/doctors/{id}/` | Public | Public doctor profile, qualifications, affiliated clinics |
-| `POST` | `/doctors/profile/` | Doctor | Submit doctor credentials and Reg No for verification |
-| `GET` | `/doctors/me/clinics/` | Doctor | List all affiliated clinics and pending invites |
-| `PATCH`| `/doctors/invitations/{id}/accept/` | Doctor | Accept a clinic's association invite |
-| `PATCH`| `/doctors/invitations/{id}/reject/` | Doctor | Decline a clinic's association invite |
-| `GET` | `/doctors/me/master-schedule/` | Doctor | Unified multi-clinic weekly schedule view |
+| `POST` | `/doctors/profile/` | Doctor | Create initial practitioner profile in `DRAFT` status |
+| `GET` | `/doctors/me/` | Doctor | Retrieve authenticated practitioner's full profile and verification status |
+| `PATCH`| `/doctors/me/` | Doctor | Update permitted profile fields (qualifications, experience, bio, languages, photo) |
+| `POST` | `/doctors/me/submit-verification/` | Doctor | Submit/resubmit completed profile for Super Admin verification review |
+| `GET` | `/doctors/me/documents/` | Doctor | List private uploaded verification evidence documents |
+| `POST` | `/doctors/me/documents/` | Doctor | Upload private registration certificate or qualification proof (max 5MB) |
+| `DELETE`| `/doctors/me/documents/{id}/` | Doctor | Remove uploaded verification document |
+| `GET` | `/doctors/me/documents/{id}/download/` | Doctor | Securely stream private verification document |
+| `GET` | `/doctors/registration-lookup/` | Clinic Owner / Admin | Privacy-preserving lookup by registration number & council |
+| `GET` | `/doctors/specializations/` | Authenticated | List medical specialization catalog |
+| `GET` | `/doctors/` | Public | Search verified doctors (by name, specialty, city) [Future] |
+| `GET` | `/doctors/{id}/` | Public | Public doctor profile, qualifications, affiliated clinics [Future] |
+| `GET` | `/doctors/me/clinics/` | Doctor | List all affiliated clinics and pending invites [Future] |
+| `PATCH`| `/doctors/invitations/{id}/accept/` | Doctor | Accept a clinic's association invite [Future] |
+| `PATCH`| `/doctors/invitations/{id}/reject/` | Doctor | Decline a clinic's association invite [Future] |
+| `GET` | `/doctors/me/master-schedule/` | Doctor | Unified multi-clinic weekly schedule view [Future] |
+
+#### Super Admin Doctor Oversight (`/api/v1/admin/doctors/`)
+
+| Method | Endpoint | Access Role | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/admin/doctors/` | Super Admin | List all doctor profiles with status filtering and keyword search (paginated) |
+| `GET` | `/admin/doctors/{id}/` | Super Admin | View full doctor profile, credentials, verification audit trail, and documents |
+| `POST` | `/admin/doctors/{id}/verify/` | Super Admin | Approve pending doctor (records `verified_by` and `verified_at`) |
+| `POST` | `/admin/doctors/{id}/reject/` | Super Admin | Reject pending doctor with mandatory reason for resubmission |
+| `POST` | `/admin/doctors/{id}/suspend/` | Super Admin | Suspend active doctor with mandatory justification reason |
+| `POST` | `/admin/doctors/{id}/reactivate/` | Super Admin | Reactivate suspended doctor back to `VERIFIED` |
+| `GET` | `/admin/doctors/{id}/documents/{doc_id}/download/` | Super Admin | Securely stream and inspect private verification document |
 
 ---
 

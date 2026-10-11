@@ -1,40 +1,67 @@
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ShieldCheck, Building2, UserCheck, Percent } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ShieldCheck, Building2, UserCheck, Percent, ArrowUpRight, Stethoscope } from "lucide-react";
+import { useAdminClinics } from "@/features/clinics";
+import { useAdminDoctors } from "@/features/doctors";
 
 export function AdminPage() {
+  const { data: pendingClinicsData } = useAdminClinics({ status: "PENDING" });
+  const pendingClinicsCount = pendingClinicsData?.count ?? 0;
+
+  const { data: pendingDoctorsData } = useAdminDoctors({ status: "PENDING" });
+  const pendingDoctorsCount = pendingDoctorsData?.count ?? 0;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Super Admin Platform Controls</h1>
-          <p className="text-sm text-muted-foreground">Platform-level oversight, clinic verifications, doctor credentialing, and commission controls.</p>
+          <p className="text-sm text-muted-foreground">
+            Platform-level oversight, clinic verifications, doctor credentialing, and commission controls.
+          </p>
         </div>
-        <Badge variant="outline">Day 2 Shell</Badge>
+        <div className="flex items-center gap-2">
+          <Link to="/admin/clinics">
+            <Badge variant="outline" className="cursor-pointer hover:bg-accent gap-1">
+              Clinics <ArrowUpRight className="h-3 w-3" />
+            </Badge>
+          </Link>
+          <Link to="/admin/doctors">
+            <Badge variant="outline" className="cursor-pointer hover:bg-accent gap-1">
+              Doctors <ArrowUpRight className="h-3 w-3" />
+            </Badge>
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Pending Clinics</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">--</div>
-            <p className="text-xs text-muted-foreground">Awaiting license check</p>
-          </CardContent>
-        </Card>
+        <Link to="/admin/clinics">
+          <Card className="hover:border-primary/50 transition-colors cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Pending Clinics</CardTitle>
+              <Building2 className="h-4 w-4 text-amber-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-amber-600">{pendingClinicsCount}</div>
+              <p className="text-xs text-muted-foreground">Awaiting establishment check</p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Pending Doctors</CardTitle>
-            <UserCheck className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">--</div>
-            <p className="text-xs text-muted-foreground">Registration verification</p>
-          </CardContent>
-        </Card>
+        <Link to="/admin/doctors">
+          <Card className="hover:border-primary/50 transition-colors cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Pending Doctors</CardTitle>
+              <UserCheck className="h-4 w-4 text-amber-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-amber-600">{pendingDoctorsCount}</div>
+              <p className="text-xs text-muted-foreground">Registration verification</p>
+            </CardContent>
+          </Card>
+        </Link>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -59,14 +86,45 @@ export function AdminPage() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Super Admin Management Placeholder</CardTitle>
-          <CardDescription>
-            Clinical establishment act verification, doctor medical council checks, disputes, and commission overrides will be added in upcoming days.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-primary" />
+              Clinic Facilities Oversight
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Review new healthcare establishment registrations, licenses, addresses, and operating parameters.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link to="/admin/clinics">
+              <Button variant="outline" size="sm" className="text-xs gap-1.5">
+                Open Clinics Directory <ArrowUpRight className="h-3 w-3" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Stethoscope className="h-4 w-4 text-primary" />
+              Doctor Credentials Verification
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Verify practitioner medical council registrations, qualifications, and manage suspension disputes.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link to="/admin/doctors">
+              <Button variant="outline" size="sm" className="text-xs gap-1.5">
+                Open Doctors Oversight <ArrowUpRight className="h-3 w-3" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

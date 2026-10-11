@@ -1,16 +1,28 @@
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Building2, Users, CalendarDays, DollarSign } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Building2, Users, CalendarDays, DollarSign, Plus } from "lucide-react";
 
 export function ClinicPage() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Clinic SaaS Dashboard</h1>
           <p className="text-sm text-muted-foreground">Manage your clinic, affiliated doctors, schedules, and reception queue.</p>
         </div>
-        <Badge variant="outline">Day 2 Shell</Badge>
+        <div className="flex items-center space-x-2">
+          <Link to="/clinic/my-clinics">
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <Building2 className="h-4 w-4" /> My Clinics
+            </Button>
+          </Link>
+          <Link to="/clinic/register">
+            <Button size="sm" className="gap-1.5">
+              <Plus className="h-4 w-4" /> Register Clinic
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">

@@ -11,9 +11,18 @@ import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 
 import ClinicPage from "@/pages/ClinicPage";
+import ClinicRegisterPage from "@/pages/clinic/ClinicRegisterPage";
+import MyClinicsPage from "@/pages/clinic/MyClinicsPage";
+import ClinicDetailPage from "@/pages/clinic/ClinicDetailPage";
 import DoctorPage from "@/pages/DoctorPage";
+import DoctorProfilePage from "@/pages/doctor/DoctorProfilePage";
+import DoctorVerificationPage from "@/pages/doctor/DoctorVerificationPage";
 import PatientPage from "@/pages/PatientPage";
 import AdminPage from "@/pages/AdminPage";
+import AdminClinicsPage from "@/pages/admin/AdminClinicsPage";
+import AdminClinicDetailPage from "@/pages/admin/AdminClinicDetailPage";
+import AdminDoctorsPage from "@/pages/admin/AdminDoctorsPage";
+import AdminDoctorDetailPage from "@/pages/admin/AdminDoctorDetailPage";
 
 import { ProtectedRoute } from "@/features/auth";
 
@@ -63,7 +72,23 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
+        element: <MyClinicsPage />,
+      },
+      {
+        path: "dashboard",
         element: <ClinicPage />,
+      },
+      {
+        path: "register",
+        element: <ClinicRegisterPage />,
+      },
+      {
+        path: "my-clinics",
+        element: <MyClinicsPage />,
+      },
+      {
+        path: "my-clinics/:id",
+        element: <ClinicDetailPage />,
       },
     ],
   },
@@ -78,6 +103,14 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <DoctorPage />,
+      },
+      {
+        path: "profile",
+        element: <DoctorProfilePage />,
+      },
+      {
+        path: "verification",
+        element: <DoctorVerificationPage />,
       },
     ],
   },
@@ -106,6 +139,22 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <AdminPage />,
+      },
+      {
+        path: "clinics",
+        element: <AdminClinicsPage />,
+      },
+      {
+        path: "clinics/:id",
+        element: <AdminClinicDetailPage />,
+      },
+      {
+        path: "doctors",
+        element: <AdminDoctorsPage />,
+      },
+      {
+        path: "doctors/:id",
+        element: <AdminDoctorDetailPage />,
       },
     ],
   },

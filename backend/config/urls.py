@@ -13,6 +13,8 @@ api_v1_patterns = [
     # Domain module routing foundations
     path("auth/", include("apps.accounts.urls", namespace="accounts")),
     path("clinics/", include("apps.clinics.urls", namespace="clinics")),
+    path("admin/clinics/", include("apps.clinics.admin_urls", namespace="admin-clinics")),
+    path("admin/doctors/", include("apps.doctors.admin_urls", namespace="admin-doctors")),
     path("doctors/", include("apps.doctors.urls", namespace="doctors")),
     path("patients/", include("apps.patients.urls", namespace="patients")),
     path("schedules/", include("apps.schedules.urls", namespace="schedules")),

@@ -25,46 +25,96 @@
 
 ---
 
-## 2. Clinic Registration & Super Admin Verification Workflow
+## 2. Clinic Registration & Verification Lifecycle (Day 4)
+
+### 2.1. End-to-End Workflow Diagram
 
 ```
 [Clinic Owner]                           [Backend API]                         [Super Admin]
    │                                           │                                     │
-   │─── 1. POST /api/v1/clinics/register/ ────►│                                     │
-   │    (Name, CEA License No, Address,        │                                     │
-   │     Timezone, Owner details)              │─── 2. Create Clinic                 │
-   │                                           │       (Status: PENDING_VERIFICATION)│
-   │                                           │─── 3. Emit Admin Notification ─────►│
+   │─── 1. POST /api/v1/clinics/ ─────────────►│                                     │
+   │    (Name, Email, Phone, Address,          │                                     │
+   │     City, State, Pincode, Country, Logo)  │─── 2. Validate fields & slug        │
+   │                                           │─── 3. Persist (Status: PENDING)     │
    │◄── 4. 201 Created (Pending Verification) ─┤                                     │
    │                                           │                                     │
    │                                           │◄── 5. GET /api/v1/admin/clinics/ ───│
-   │                                           │       (Review CEA License Docs)     │
+   │                                           │       (Filter & inspect submission) │
    │                                           │                                     │
-   │                                           │◄── 6. POST .../clinics/{id}/verify/─│
-   │                                           │─── 7. Update Clinic (Status: ACTIVE)│
-   │                                           │─── 8. Send Activation Email ────────│
-   │◄── 9. Clinic Live on Platform ────────────┤                                     │
+   │                                           │◄── 6. POST .../clinics/{id}/approve/│
+   │                                           │       (Owner cannot self-approve)   │
+   │                                           │─── 7. Status -> APPROVED            │
+   │                                           │       approved_at, approved_by set  │
+   │                                           │─── 8. Immutable audit logged        │
+   │◄── 9. Status = APPROVED (Bookable) ───────┤                                     │
+   │                                           │                                     │
+   │   [Alternative: Rejection Flow]           │                                     │
+   │                                           │◄── 10. POST .../reject/ (reason) ───│
+   │                                           │─── 11. Status -> REJECTED           │
+   │◄── 12. View Rejection Reason ─────────────┤        verification_notes updated   │
+   │─── 13. PATCH /clinics/{id}/ (corrections)►│                                     │
+   │─── 14. POST /clinics/{id}/submit/ ───────►│─── 15. Status -> PENDING            │
+   │◄── 16. Resubmitted for Admin Review ──────┤                                     │
 ```
+
+### 2.2. State Transition Matrix
+
+| Current Status | Action | Actor | New Status | Pre-Conditions / Requirements |
+| :--- | :--- | :--- | :--- | :--- |
+| `None` | Create (Default) | `CLINIC_OWNER` | `PENDING` | Valid form, unique slug generated |
+| `None` | Create (Draft) | `CLINIC_OWNER` | `DRAFT` | Valid form, status requested as DRAFT |
+| `DRAFT` | Submit | `CLINIC_OWNER` | `PENDING` | Owner authorization |
+| `PENDING` | Approve | `SUPER_ADMIN` | `APPROVED` | Approver != Clinic Owner, sets `approved_at` & `approved_by` |
+| `PENDING` | Reject | `SUPER_ADMIN` | `REJECTED` | Non-empty reason required in `verification_notes` |
+| `REJECTED` | Resubmit | `CLINIC_OWNER` | `PENDING` | Owner corrects profile, calls `submit/` |
+| `APPROVED` | Suspend | `SUPER_ADMIN` | `SUSPENDED` | Non-empty reason required, blocks bookings |
+| `SUSPENDED`| Reactivate | `SUPER_ADMIN` | `APPROVED` | Super Admin review confirms compliance |
 
 ---
 
-## 3. Doctor Registration & Global Profile Verification
+## 3. Doctor Registration & Medical Registration Verification
 
 ```
-[Doctor]                                 [Backend API]                         [Super Admin]
-   │                                           │                                     │
-   │─── 1. POST /api/v1/doctors/register/ ────►│                                     │
-   │    (Name, Reg Number 'MED123456',         │                                     │
-   │     Council, Specialization, Docs)        │─── 2. Check Reg No Uniqueness ─────►│
-   │                                           │       (If exists -> 409 Conflict)   │
-   │                                           │─── 3. Create User (Role=DOCTOR)     │
-   │                                           │─── 4. Create Doctor Profile         │
-   │                                           │       (Status: is_verified=False)   │
-   │◄── 5. 201 Created (Pending Verification) ─┤                                     │
-   │                                           │◄── 6. Admin Verifies Council Reg ───│
-   │                                           │─── 7. Set is_verified=True          │
-   │◄── 8. Doctor Profile Live in Directory ───┤                                     │
+[Doctor]                                      [Backend API]                         [Super Admin]
+   │                                                │                                     │
+   │─── 1. Register User Account (Role=DOCTOR) ────►│                                     │
+   │                                                │                                     │
+   │─── 2. POST /api/v1/doctors/profile/ ──────────►│                                     │
+   │    (Reg No, Council, Specs, Qualifications)   │─── Validate & Normalize Reg No      │
+   │                                                │    (Enforce Council Uniqueness)     │
+   │◄── 3. 201 Created (Status: DRAFT) ─────────────┤                                     │
+   │                                                │                                     │
+   │─── 4. POST /api/v1/doctors/me/documents/ ─────►│                                     │
+   │    (Upload Certificate / ID Evidence)          │─── Store Private Evidence           │
+   │                                                │                                     │
+   │─── 5. POST /api/v1/doctors/me/submit-          │                                     │
+   │       verification/ ──────────────────────────►│                                     │
+   │                                                │─── Set Status: PENDING              │
+   │◄── 6. 200 OK (Awaiting Admin Review) ──────────┤                                     │
+   │                                                │                                     │
+   │                                                │◄── 7. GET /api/v1/admin/doctors/ ───│
+   │                                                │    (Admin reviews submitted queue)  │
+   │                                                │                                     │
+   │                                                │◄── 8. Verify / Reject / Suspend ────│
+   │                                                │    - Verify: Set VERIFIED           │
+   │                                                │    - Reject: Set REJECTED + reason  │
+   │                                                │    - Suspend: Set SUSPENDED + reason│
+   │◄── 9. Doctor views verified status / notes ────┤                                     │
+   │    (If REJECTED: correct & resubmit)           │                                     │
 ```
+
+### Verification Status Transitions
+- `DRAFT -> PENDING`: Doctor submits completed profile and evidence.
+- `PENDING -> VERIFIED`: Super Admin approves valid registration (records `verified_by` and `verified_at`).
+- `PENDING -> REJECTED`: Super Admin rejects with mandatory reason notes.
+- `REJECTED -> PENDING`: Doctor corrects credentials and resubmits.
+- `VERIFIED -> SUSPENDED`: Super Admin suspends practitioner with audited justification.
+- `SUSPENDED -> VERIFIED`: Super Admin reinstates doctor standing.
+- **Invariants:**
+  - Doctors cannot verify themselves.
+  - Verifying administrator cannot approve their own doctor account.
+  - Suspended doctors cannot become verified via normal profile editing or resubmission.
+  - Public users and patients cannot view private doctor verification records or documents.
 
 ---
 

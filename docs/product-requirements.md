@@ -23,9 +23,29 @@
 
 ## 3. Core Functional Requirements
 
-### 3.1. Doctor Identity & Multi-Clinic Tenancy
-- **Global Doctor Profile:** A doctor is registered once globally using their unique government medical registration council number (e.g., `MCI-123456` or state council registration).
-- **Registration Number Uniqueness:** The system strictly enforces uniqueness at the database level. Duplicate accounts with the same medical registration number are prevented.
+### 3.1. Doctor Identity, Profile & Medical Registration Verification
+- **Global Doctor Profile:** A doctor maintains a single global medical identity linked 1:1 with their primary login account (`User`, role: `DOCTOR`).
+- **Medical Registration Uniqueness:**
+  - A medical registration number uniquely identifies a doctor within their issuing authority.
+  - Scope: Enforced via a composite unique constraint: `(normalized_registration_council, normalized_registration_number)`.
+  - Normalization: Automatically strips whitespace and converts to uppercase (e.g. ` MMC / 12345 ` -> `MMC/12345`; ` Maharashtra Medical Council ` -> `MAHARASHTRA MEDICAL COUNCIL`). Case variations and spacing tricks cannot bypass uniqueness.
+  - Defense-in-depth: Enforced through application-level validation in `clean()` and serializers, plus physical database constraint `unique_doctor_council_normalized_reg_no`.
+- **Doctor Registration & Verification Lifecycle:**
+  - `DRAFT`: Doctor account created and profile details saved. Doctor can edit all fields and upload supporting evidence documents.
+  - `PENDING`: Doctor submits completed profile for verification. Super Admin review queue displays submitted details.
+  - `VERIFIED`: Super Admin verifies authenticity of medical council records. Records verifier admin user and timestamp. Doctor becomes eligible for clinic invitations and appointment scheduling.
+  - `REJECTED`: Super Admin rejects submission with a mandatory reason. Doctor is notified, can correct credentials, and resubmit.
+  - `SUSPENDED`: Super Admin suspends practitioner with an audited reason. Suspended doctors are ineligible for new clinic associations or appointments.
+- **Self-Approval Invariant:** An administrator cannot verify their own doctor profile.
+- **Private Verification Documents:**
+  - Doctors upload registration certificates and degree proofs privately (max 5MB, PDF/JPG/PNG).
+  - Documents are stored in secure private storage and never exposed via public endpoints or directory searches.
+  - Only the owning doctor and authorized Super Admins have permission to access private verification files.
+- **Privacy-Preserving Registration Lookup:**
+  - Authorized Clinic Owners can query `GET /api/v1/doctors/registration-lookup/?registration_number=...` to verify if a doctor exists and is verified before sending clinic invitations.
+  - Omits private contact details, email, phone, documents, verification notes, and patient data.
+  - Disambiguation: If a registration number matches across multiple state councils, the API explicitly prompts for `registration_council`.
+
 - **Doctor ↔ Clinic Many-to-Many Association (`DoctorClinic`):**
   - A doctor can practice at Clinic A (e.g., morning) and Clinic B (e.g., evening).
   - Each association requires mutual consent: Clinic Owner sends an invitation/request, and Doctor accepts via their dashboard (or vice-versa).
@@ -102,7 +122,24 @@ Appointments progress through strict, audited states:
 ### 3.9. Consultations & Digital Prescriptions
 - **Clinical Records:** Doctors record Chief Complaints, Clinical Observations, Diagnoses (ICD-10 optional), and Vital Signs (BP, Pulse, Temperature, SpO2, Weight).
 - **Prescriptions:** Medicines with dosage, frequency (e.g., 1-0-1), duration (e.g., 5 days), route (Oral, Topical), and special instructions (After food), alongside recommended lab investigations and follow-up date.
-- **Patient Access:** Patients can view, download, and print signed PDF prescriptions directly from their web portal.
+### 3.10. Clinic Registration, Verification & Lifecycle (Day 4)
+- **Establishment Onboarding:**
+  - Authenticated `CLINIC_OWNER` users can register medical centers and clinics.
+  - Required profile: Legal/commercial name, unique public slug, official email, phone, physical address (line 1, line 2, city, state, postal/PIN code, country), optional clinic logo.
+  - Creation status: Starts as `PENDING` (or `DRAFT` if saved as draft).
+  - An owner can own and manage multiple clinics independently.
+- **Verification State Machine:**
+  - `DRAFT`: Saved clinic profile. Not visible for booking or admin review until submitted.
+  - `PENDING`: Awaiting Super Admin compliance and credential check.
+  - `APPROVED`: Verified by Super Admin. Publicly bookable in patient discovery.
+  - `REJECTED`: Rejected by Super Admin with mandatory feedback notes. Clinic owner can correct information and resubmit.
+  - `SUSPENDED`: Administratively suspended with mandatory reason. Blocked from taking new patient bookings. Super Admin can reactivate.
+- **Critical Policy Rules & Invariants:**
+  - A clinic owner can never approve, reject, suspend, or reactivate their own clinic (or any clinic).
+  - Only platform `SUPER_ADMIN` users can execute verification decisions.
+  - Rejected clinics require explicit correction before transitioning back to `PENDING` via the submission endpoint.
+  - Non-clinic owners (Patients, Doctors, Staff) are strictly forbidden from creating or administering clinics.
+  - Strict tenant isolation: Clinic owners can only view and mutate clinics they own.
 
 ---
 

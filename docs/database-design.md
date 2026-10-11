@@ -211,23 +211,27 @@
 | Field Name | Type | Modifiers / Constraints | Description |
 | :--- | :--- | :--- | :--- |
 | `id` | UUID | Primary Key, Default: `uuid4` | Clinic ID |
-| `owner` | UUID | FK -> `users_user(id)`, OnDelete: RESTRICT | Clinic owner |
+| `owner` | UUID | FK -> `users_user(id)`, OnDelete: RESTRICT, Index | Clinic owner |
 | `name` | VARCHAR(255) | Not Null, Index | Legal / Commercial clinic name |
-| `slug` | VARCHAR(255) | Unique, Index | SEO friendly URL slug |
-| `registration_number`| VARCHAR(100) | Unique, Index | Clinical Establishment Act License |
-| `phone_number` | VARCHAR(20) | Not Null | Official clinic landline/mobile |
-| `email` | VARCHAR(255) | Not Null | Official reception email |
-| `address_line1` | VARCHAR(255) | Not Null | Street address |
+| `slug` | VARCHAR(255) | Unique, Index | Unique SEO friendly URL slug with auto collision suffix |
+| `description` | TEXT | Blank, Default: `""` | Clinical biography / facility description |
+| `email` | VARCHAR(255) | Not Null | Official reception contact email |
+| `phone` | VARCHAR(20) | Not Null | Official contact phone (`phone_number` alias) |
+| `address_line_1` | VARCHAR(255) | Not Null | Street address |
+| `address_line_2` | VARCHAR(255) | Nullable, Blank | Landmark, unit, or suite |
 | `city` | VARCHAR(100) | Not Null, Index | City |
-| `state` | VARCHAR(100) | Not Null | State |
-| `postal_code` | VARCHAR(20) | Not Null | PIN/Postal code |
-| `latitude` | DECIMAL(9,6) | Nullable | Geo coordinate |
-| `longitude` | DECIMAL(9,6) | Nullable | Geo coordinate |
+| `state` | VARCHAR(100) | Not Null | State / Province |
+| `pincode` | VARCHAR(20) | Not Null | Postal / PIN code (`postal_code` alias) |
+| `country` | VARCHAR(100) | Default: `'India'` | Country of establishment |
+| `logo` | VARCHAR(500) | Nullable, ImageField | Uploaded clinic logo (max 2MB, validated) |
+| `status` | VARCHAR(20) | Index, Default: `'PENDING'` | `DRAFT`, `PENDING`, `APPROVED`, `REJECTED`, `SUSPENDED` |
+| `verification_notes`| TEXT | Nullable | Admin notes or required correction reason |
 | `timezone` | VARCHAR(50) | Default: `'Asia/Kolkata'` | Operating timezone |
-| `custom_commission_rate`| DECIMAL(5,2)| Nullable | Optional override for platform commission % |
-| `status` | VARCHAR(20) | Index, Default: `'PENDING_VERIFICATION'` | `PENDING_VERIFICATION`, `ACTIVE`, `SUSPENDED`, `INACTIVE` |
-| `is_verified` | BOOLEAN | Default: `false` | Super Admin verification status |
-| `created_at` | TIMESTAMPTZ | Default: `now()` | Timestamp |
+| `is_verified` | BOOLEAN | Default: `false`, Index | True strictly when status is `APPROVED` |
+| `approved_at` | TIMESTAMPTZ | Nullable | Timestamp when approved by Super Admin |
+| `approved_by` | UUID | FK -> `users_user(id)`, Nullable, OnDelete: SET_NULL | Super Admin user who approved the clinic |
+| `created_at` | TIMESTAMPTZ | Default: `now()`, Index | Record creation timestamp |
+| `updated_at` | TIMESTAMPTZ | Auto-now | Record last update timestamp |
 
 #### `clinics_clinicstaff`
 | Field Name | Type | Modifiers / Constraints | Description |
@@ -254,15 +258,43 @@
 #### `doctors_doctor`
 | Field Name | Type | Modifiers / Constraints | Description |
 | :--- | :--- | :--- | :--- |
-| `id` | UUID | Primary Key, Default: `uuid4` | Doctor ID |
+| `id` | UUID | Primary Key, Default: `uuid4` | Global Doctor ID |
 | `user` | UUID | FK -> `users_user(id)`, 1:1, Unique, OnDelete: CASCADE | Associated user account |
-| `registration_number`| VARCHAR(100) | Unique, Index, Not Null | Unique Medical Council Registration No. |
-| `registration_council`| VARCHAR(150)| Not Null | e.g., 'Maharashtra Medical Council' |
-| `primary_specialization`| UUID | FK -> `doctors_specialization(id)`, RESTRICT | Main medical specialty |
-| `qualification` | VARCHAR(255) | Not Null | e.g., 'MBBS, MD (Medicine)' |
-| `experience_years` | INTEGER | Check: `>= 0` | Years of clinical practice |
-| `bio` | TEXT | Nullable | Professional biography |
-| `is_verified` | BOOLEAN | Default: `false`, Index | Super Admin verification status |
+| `registration_number`| VARCHAR(100) | Not Null, Index | Official medical council registration identifier |
+| `normalized_registration_number`| VARCHAR(100) | Not Null, Index | Whitespace-stripped and uppercased registration number |
+| `registration_council`| VARCHAR(200)| Not Null, Index | Issuing medical council authority name |
+| `normalized_registration_council`| VARCHAR(200)| Not Null, Index | Uppercased council name with collapsed whitespace |
+| `registration_state` | VARCHAR(100) | Blank, Default: `""` | Issuing state or jurisdiction |
+| `full_name` | VARCHAR(200) | Not Null | Practitioner full name |
+| `specialization` | VARCHAR(150) | Not Null, Index | Clinical specialty (e.g. Cardiology) |
+| `qualifications` | VARCHAR(255) | Not Null | Academic & medical qualifications (e.g. MBBS, MD) |
+| `years_of_experience` | INTEGER | Check: `>= 0`, Default: 0 | Years of active clinical practice |
+| `bio` | TEXT | Blank, Default: `""` | Professional biography |
+| `languages` | VARCHAR(255) | Blank, Default: `'English'` | Spoken consultation languages |
+| `profile_photo` | VARCHAR(500) | Nullable, ImageField | Uploaded portrait photo (max 2MB, validated) |
+| `verification_status`| VARCHAR(20) | Index, Default: `'DRAFT'` | `DRAFT`, `PENDING`, `VERIFIED`, `REJECTED`, `SUSPENDED` |
+| `is_verified` | BOOLEAN | Default: `false`, Index | True strictly when status is `VERIFIED` |
+| `verification_notes`| TEXT | Blank, Default: `""` | Super Admin review notes or rejection reason |
+| `submitted_at` | TIMESTAMPTZ | Nullable | Submission timestamp for admin review |
+| `verified_at` | TIMESTAMPTZ | Nullable | Timestamp of verification decision |
+| `verified_by` | UUID | FK -> `users_user(id)`, Nullable, OnDelete: SET_NULL | Verifying Super Admin user |
+| `created_at` | TIMESTAMPTZ | Default: `now()`, Index | Record creation timestamp |
+| `updated_at` | TIMESTAMPTZ | Auto-now | Record last update timestamp |
+| *Constraints* | UniqueConstraint | `(normalized_registration_council, normalized_registration_number)` | Council-scoped registration uniqueness |
+| *Constraints* | CheckConstraint | `verification_status IN ('DRAFT', 'PENDING', 'VERIFIED', 'REJECTED', 'SUSPENDED')` | Valid lifecycle status |
+| *Constraints* | CheckConstraint | `years_of_experience >= 0` | Non-negative experience |
+
+#### `doctors_doctordocument`
+| Field Name | Type | Modifiers / Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | UUID | Primary Key, Default: `uuid4` | Document ID |
+| `doctor` | UUID | FK -> `doctors_doctor(id)`, OnDelete: CASCADE | Owning doctor profile |
+| `document_type` | VARCHAR(50) | Not Null | `REGISTRATION_CERTIFICATE`, `DEGREE_CERTIFICATE`, `GOVERNMENT_ID`, `OTHER` |
+| `file` | VARCHAR(500) | FileField, Private Storage | Encrypted/Private file storage path (max 5MB, PDF/JPG/PNG) |
+| `file_name` | VARCHAR(255) | Not Null | Original filename |
+| `file_size` | INTEGER | Not Null | File size in bytes |
+| `mime_type` | VARCHAR(100) | Blank, Default: `""` | File MIME content type |
+| `uploaded_at` | TIMESTAMPTZ | Default: `now()` | Upload timestamp |
 
 #### `doctor_clinics_doctorclinic`
 | Field Name | Type | Modifiers / Constraints | Description |
