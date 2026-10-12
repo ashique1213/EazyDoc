@@ -17,6 +17,7 @@ import ClinicDetailPage from "@/pages/clinic/ClinicDetailPage";
 import DoctorPage from "@/pages/DoctorPage";
 import DoctorProfilePage from "@/pages/doctor/DoctorProfilePage";
 import DoctorVerificationPage from "@/pages/doctor/DoctorVerificationPage";
+import DoctorClinicsPage from "@/pages/doctor/DoctorClinicsPage";
 import PatientPage from "@/pages/PatientPage";
 import AdminPage from "@/pages/AdminPage";
 import AdminClinicsPage from "@/pages/admin/AdminClinicsPage";
@@ -111,6 +112,10 @@ export const router = createBrowserRouter([
       {
         path: "verification",
         element: <DoctorVerificationPage />,
+      },
+      {
+        path: "clinics",
+        element: <DoctorClinicsPage />,
       },
     ],
   },

@@ -300,16 +300,27 @@
 | Field Name | Type | Modifiers / Constraints | Description |
 | :--- | :--- | :--- | :--- |
 | `id` | UUID | Primary Key, Default: `uuid4` | Association ID |
-| `doctor` | UUID | FK -> `doctors_doctor(id)`, OnDelete: RESTRICT | Doctor reference |
-| `clinic` | UUID | FK -> `clinics_clinic(id)`, OnDelete: RESTRICT | Clinic reference |
-| `consultation_fee` | DECIMAL(10,2)| Not Null, Check: `>= 0` | In-clinic consultation fee (INR) |
-| `online_consultation_fee`| DECIMAL(10,2)| Nullable, Check: `>= 0` | Optional teleconsult fee (INR) |
-| `appointment_duration`| INTEGER | Default: `15`, Check: `> 0` | Slot duration in minutes |
-| `follow_up_fee` | DECIMAL(10,2)| Default: `0.00` | Follow-up visit fee |
-| `follow_up_validity_days`| INTEGER | Default: `7` | Validity window for follow-up |
-| `status` | VARCHAR(20) | Default: `'INVITED'`, Index | `INVITED`, `ACTIVE`, `PAUSED`, `TERMINATED` |
-| `invited_by` | VARCHAR(20) | `CLINIC` or `DOCTOR` | Invitation origin |
-| *Constraints* | UniqueConstraint | `(doctor, clinic)` | One association record per doctor-clinic pair |
+| `doctor` | UUID | FK -> `doctors_doctor(id)`, OnDelete: CASCADE | Reusable global Doctor reference |
+| `clinic` | UUID | FK -> `clinics_clinic(id)`, OnDelete: CASCADE | Clinic establishment reference |
+| `status` | VARCHAR(20) | Default: `'INVITED'`, Index | Association status (`INVITED`, `ACTIVE`, `REJECTED`, `REMOVED`, `SUSPENDED`) |
+| `invited_by` | UUID | FK -> `accounts_user(id)`, OnDelete: SET_NULL, Nullable | Clinic owner who initiated the invitation |
+| `invitation_message` | TEXT | Blank, Default: `""` | Optional welcome note or affiliation terms |
+| `consultation_fee` | DECIMAL(10,2)| Not Null, Default: `0.00`, Check: `>= 0` | Clinic-specific in-person consultation fee (INR) |
+| `follow_up_fee` | DECIMAL(10,2)| Not Null, Default: `0.00`, Check: `>= 0` | Optional clinic-specific follow-up consultation fee (INR) |
+| `appointment_duration_minutes`| INTEGER | Default: `15`, Check: `>= 5 AND <= 240` | Slot duration in minutes |
+| `accepted_at` | TIMESTAMPTZ | Nullable | Timestamp when doctor accepted the invitation |
+| `rejected_at` | TIMESTAMPTZ | Nullable | Timestamp when doctor declined the invitation |
+| `removed_at` | TIMESTAMPTZ | Nullable | Timestamp when clinic owner ended active association |
+| `created_at` | TIMESTAMPTZ | Default: `now()` | Initial invitation creation timestamp |
+| `updated_at` | TIMESTAMPTZ | Default: `now()`, on update | Timestamp of last modification |
+| *Constraints* | UniqueConstraint | `(doctor, clinic)` | Strictly one association record per doctor-clinic pair |
+| *Constraints* | CheckConstraint | `status IN ('INVITED','ACTIVE','REJECTED','REMOVED','SUSPENDED')` | Valid lifecycle statuses |
+| *Constraints* | CheckConstraint | `consultation_fee >= 0` | Non-negative in-clinic fee |
+| *Constraints* | CheckConstraint | `follow_up_fee >= 0` | Non-negative follow-up fee |
+| *Constraints* | CheckConstraint | `appointment_duration_minutes >= 5 AND appointment_duration_minutes <= 240` | Valid slot duration range |
+| *Indexes* | B-Tree Index | `(clinic, status)` | Filter clinic doctors by active/pending |
+| *Indexes* | B-Tree Index | `(doctor, status)` | Filter doctor affiliations by active/pending |
+| *Indexes* | B-Tree Index | `(status, created_at)` | Temporal indexing of association status |
 
 ---
 

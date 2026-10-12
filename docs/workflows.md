@@ -124,20 +124,42 @@
 [Clinic Owner]             [Backend API]                    [Doctor]              [Database]
       │                          │                             │                       │
       │── 1. Search Doctor ─────►│                             │                       │
-      │   by Reg No "MED123456"  │── 2. Query Doctor ─────────────────────────────────►│
-      │◄─ 3. Return Dr Profile ──┤                             │                       │
+      │   by Reg No "MMC-112233" │── 2. Query Doctor ─────────────────────────────────►│
+      │◄─ 3. Return Dr Profile ──┤   (Privacy-preserving)      │                       │
       │                          │                             │                       │
       │── 4. Invite Doctor ─────►│                             │                       │
-      │   (fee=₹500, dur=15m)    │── 5. Create DoctorClinic ──────────────────────────►│
+      │   (fee=₹500, dur=15m)    │── 5. Create/Reinvite DoctorClinic ─────────────────►│
       │                          │      (status='INVITED')     │                       │
-      │                          │── 6. Send Invitation Alert ►│                       │
       │                          │                             │                       │
-      │                          │◄─ 7. Accept Invite ─────────│                       │
-      │                          │   (PATCH .../accept/)       │                       │
-      │                          │── 8. Update DoctorClinic ──────────────────────────►│
-      │                          │      (status='ACTIVE')      │                       │
-      │◄─ 9. Doctor Linked ──────┤                             │                       │
+      │                          │◄─ 6. Accept or Decline ─────│                       │
+      │                          │   (POST .../accept/)        │                       │
+      │                          │── 7. Transition Status ────────────────────────────►│
+      │                          │      (status='ACTIVE'/'REJECTED')                   │
+      │◄─ 8. Status Updated ─────┤                             │                       │
+      │                          │                             │                       │
+      │── 9. Configure Terms ───►│                             │                       │
+      │   (PATCH .../settings/)  │── 10. Update Independent Fees ─────────────────────►│
+      │                          │                                                     │
+      │── 11. Remove Association►│                                                     │
+      │   (POST .../remove/)     │── 12. End Association (status='REMOVED') ──────────►│
 ```
+
+### 4.1. Association Lifecycle & State Transitions
+
+| From Status | To Status | Triggered By | Conditions & Invariants |
+| :--- | :--- | :--- | :--- |
+| *None* | `INVITED` | Clinic Owner | Clinic must be `APPROVED`; Doctor must be `VERIFIED` and active. Unique constraint enforced. |
+| `INVITED` | `ACTIVE` | Doctor | Doctor explicitly accepts their own invitation. Sets `accepted_at` timestamp. |
+| `INVITED` | `REJECTED` | Doctor | Doctor explicitly declines invitation. Sets `rejected_at` timestamp. |
+| `ACTIVE` | `REMOVED` | Clinic Owner | Clinic owner removes doctor from clinic. Sets `removed_at`. Global doctor profile and other clinics remain untouched. |
+| `ACTIVE` | `SUSPENDED` | Super Admin | Platform administration moderation or temporary sanction. |
+| `REJECTED` / `REMOVED`| `INVITED` | Clinic Owner | Safe re-invitation workflow: resets timestamps, updates proposed terms, records audit event without row duplication. |
+
+### 4.2. Invariant Rules
+1. **No Duplicate Rows**: `(doctor, clinic)` uniqueness enforced at the database constraint level.
+2. **Independent Pricing**: Clinic A's fee changes never alter Clinic B's agreed rates for the same doctor.
+3. **Tenant Privacy**: Registration search returns only public medical identity; private credentials, documents, and notes are never leaked.
+4. **IDOR Defense**: All clinic endpoints enforce tenant ownership; doctor decision endpoints verify `request.user.doctor_profile == association.doctor`.
 
 ---
 

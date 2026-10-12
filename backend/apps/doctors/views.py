@@ -10,6 +10,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.audit_logs.services import log_audit_event
+from apps.clinics.models import ClinicStatus, DoctorClinic, DoctorClinicStatus
+from apps.clinics.serializers import DoctorClinicSerializer
 from .models import (
     Doctor,
     DoctorDocument,
@@ -480,3 +482,245 @@ class SpecializationListView(APIView):
         specializations = Specialization.objects.all().order_by("name")
         serializer = SpecializationSerializer(specializations, many=True)
         return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
+
+
+class DoctorMyClinicsListView(APIView):
+    """
+    List clinic associations for the authenticated doctor.
+    Supports filtering by status (e.g. ?status=ACTIVE).
+    """
+
+    permission_classes = [IsDoctorUser]
+
+    @extend_schema(
+        summary="List Doctor's Clinic Associations",
+        description="Lists all clinics affiliated with the authenticated doctor.",
+        responses={
+            200: DoctorClinicSerializer(many=True),
+            403: OpenApiResponse(description="Forbidden."),
+            404: OpenApiResponse(description="Doctor profile not found."),
+        },
+    )
+    def get(self, request):
+        doctor = Doctor.objects.filter(user=request.user).first()
+        if not doctor:
+            return Response(
+                {"success": False, "message": "Doctor profile not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        queryset = DoctorClinic.objects.filter(doctor=doctor).select_related(
+            "clinic", "doctor", "invited_by"
+        )
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            queryset = queryset.filter(status=status_filter.upper())
+
+        serializer = DoctorClinicSerializer(queryset, many=True, context={"request": request})
+        return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
+
+
+class DoctorMyClinicInvitationsListView(APIView):
+    """
+    List pending clinic invitations for the authenticated doctor.
+    """
+
+    permission_classes = [IsDoctorUser]
+
+    @extend_schema(
+        summary="List Pending Clinic Invitations",
+        description="Lists all pending clinic invitations awaiting decision by the authenticated doctor.",
+        responses={
+            200: DoctorClinicSerializer(many=True),
+            403: OpenApiResponse(description="Forbidden."),
+            404: OpenApiResponse(description="Doctor profile not found."),
+        },
+    )
+    def get(self, request):
+        doctor = Doctor.objects.filter(user=request.user).first()
+        if not doctor:
+            return Response(
+                {"success": False, "message": "Doctor profile not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        queryset = DoctorClinic.objects.filter(
+            doctor=doctor, status=DoctorClinicStatus.INVITED
+        ).select_related("clinic", "doctor", "invited_by")
+
+        serializer = DoctorClinicSerializer(queryset, many=True, context={"request": request})
+        return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
+
+
+class DoctorAcceptInvitationView(APIView):
+    """
+    Doctor accepts a pending clinic invitation.
+    Transitions association status from INVITED to ACTIVE.
+    """
+
+    permission_classes = [IsDoctorUser]
+
+    @extend_schema(
+        summary="Accept Clinic Invitation",
+        description="Accepts a pending clinic invitation, activating the doctor-clinic association.",
+        responses={
+            200: DoctorClinicSerializer,
+            400: OpenApiResponse(description="Invalid invitation state or ineligible clinic/doctor."),
+            403: OpenApiResponse(description="Forbidden."),
+            404: OpenApiResponse(description="Invitation not found."),
+        },
+    )
+    def post(self, request, association_id):
+        doctor = Doctor.objects.filter(user=request.user).first()
+        if not doctor:
+            return Response(
+                {"success": False, "message": "Doctor profile not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        association = (
+            DoctorClinic.objects.select_related("clinic")
+            .filter(id=association_id, doctor=doctor)
+            .first()
+        )
+        if not association:
+            return Response(
+                {"success": False, "message": "Invitation not found or you lack permission to respond."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if association.status != DoctorClinicStatus.INVITED:
+            if association.status == DoctorClinicStatus.ACTIVE:
+                return Response(
+                    {"success": False, "message": "This invitation has already been accepted."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            return Response(
+                {
+                    "success": False,
+                    "message": f"Cannot accept invitation in status '{association.status}'.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if association.clinic.status != ClinicStatus.APPROVED:
+            return Response(
+                {
+                    "success": False,
+                    "message": f"Cannot accept invitation for clinic with status '{association.clinic.status}'.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not doctor.is_eligible_for_clinics:
+            return Response(
+                {
+                    "success": False,
+                    "message": (
+                        "Only verified doctors with active user accounts can accept clinic invitations. "
+                        f"Current doctor status: {doctor.verification_status}."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        association.status = DoctorClinicStatus.ACTIVE
+        association.accepted_at = timezone.now()
+        association.save(update_fields=["status", "accepted_at", "updated_at"])
+
+        log_audit_event(
+            action="DOCTOR_CLINIC_INVITATION_ACCEPTED",
+            resource_type="DoctorClinic",
+            resource_id=str(association.id),
+            clinic_id=str(association.clinic_id),
+            actor=request.user,
+            request=request,
+            details={
+                "doctor_id": str(doctor.id),
+                "doctor_name": doctor.full_name,
+                "clinic_name": association.clinic.name,
+            },
+        )
+
+        return Response(
+            {
+                "success": True,
+                "message": f"Invitation to {association.clinic.name} accepted successfully.",
+                "data": DoctorClinicSerializer(association, context={"request": request}).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class DoctorRejectInvitationView(APIView):
+    """
+    Doctor rejects a pending clinic invitation.
+    Transitions association status from INVITED to REJECTED.
+    """
+
+    permission_classes = [IsDoctorUser]
+
+    @extend_schema(
+        summary="Reject Clinic Invitation",
+        description="Rejects a pending clinic invitation.",
+        responses={
+            200: DoctorClinicSerializer,
+            400: OpenApiResponse(description="Invitation cannot be rejected in current state."),
+            403: OpenApiResponse(description="Forbidden."),
+            404: OpenApiResponse(description="Invitation not found."),
+        },
+    )
+    def post(self, request, association_id):
+        doctor = Doctor.objects.filter(user=request.user).first()
+        if not doctor:
+            return Response(
+                {"success": False, "message": "Doctor profile not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        association = (
+            DoctorClinic.objects.select_related("clinic")
+            .filter(id=association_id, doctor=doctor)
+            .first()
+        )
+        if not association:
+            return Response(
+                {"success": False, "message": "Invitation not found or you lack permission to respond."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if association.status != DoctorClinicStatus.INVITED:
+            return Response(
+                {
+                    "success": False,
+                    "message": f"Cannot reject invitation in status '{association.status}'.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        association.status = DoctorClinicStatus.REJECTED
+        association.rejected_at = timezone.now()
+        association.save(update_fields=["status", "rejected_at", "updated_at"])
+
+        log_audit_event(
+            action="DOCTOR_CLINIC_INVITATION_REJECTED",
+            resource_type="DoctorClinic",
+            resource_id=str(association.id),
+            clinic_id=str(association.clinic_id),
+            actor=request.user,
+            request=request,
+            details={
+                "doctor_id": str(doctor.id),
+                "doctor_name": doctor.full_name,
+                "clinic_name": association.clinic.name,
+            },
+        )
+
+        return Response(
+            {
+                "success": True,
+                "message": f"Invitation to {association.clinic.name} rejected.",
+                "data": DoctorClinicSerializer(association, context={"request": request}).data,
+            },
+            status=status.HTTP_200_OK,
+        )

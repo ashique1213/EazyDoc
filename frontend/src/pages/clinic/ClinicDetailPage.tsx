@@ -1,6 +1,16 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Send, CheckCircle2, AlertTriangle, Clock, AlertOctagon, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Send,
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
+  AlertOctagon,
+  Loader2,
+  Building2,
+  Stethoscope,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -11,6 +21,7 @@ import {
   useUpdateClinic,
 } from "@/features/clinics";
 import type { ClinicUpdatePayload } from "@/features/clinics";
+import { ClinicDoctorsSection } from "@/features/doctorClinics";
 
 export function ClinicDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +31,7 @@ export function ClinicDetailPage() {
 
   const [serverErrors, setServerErrors] = useState<Record<string, string[] | string> | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"profile" | "doctors">("profile");
 
   if (isLoading) {
     return (
@@ -191,14 +203,44 @@ export function ClinicDetailPage() {
         </Card>
       )}
 
-      {/* Profile Edit Form */}
-      <ClinicForm
-        initialData={clinic}
-        onSubmit={handleUpdate}
-        isSubmitting={updateMutation.isPending}
-        serverErrors={serverErrors}
-        mode="edit"
-      />
+      {/* Workspace Tabs */}
+      <div className="flex items-center gap-2 border-b pb-1">
+        <Button
+          variant={activeTab === "profile" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setActiveTab("profile")}
+          className="text-xs gap-1.5 h-8 font-medium"
+        >
+          <Building2 className="h-3.5 w-3.5" />
+          Clinic Establishment Profile
+        </Button>
+        <Button
+          variant={activeTab === "doctors" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setActiveTab("doctors")}
+          className="text-xs gap-1.5 h-8 font-medium"
+        >
+          <Stethoscope className="h-3.5 w-3.5" />
+          Doctor Affiliations & Fees
+        </Button>
+      </div>
+
+      {activeTab === "profile" ? (
+        /* Profile Edit Form */
+        <ClinicForm
+          initialData={clinic}
+          onSubmit={handleUpdate}
+          isSubmitting={updateMutation.isPending}
+          serverErrors={serverErrors}
+          mode="edit"
+        />
+      ) : (
+        /* Doctor Affiliations Section */
+        <ClinicDoctorsSection
+          clinicId={clinic.id}
+          isClinicApproved={clinic.status === "APPROVED"}
+        />
+      )}
     </div>
   );
 }

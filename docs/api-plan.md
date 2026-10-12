@@ -108,14 +108,24 @@
 
 ---
 
-### 2.4. Doctor-Clinic Associations (`/api/v1/doctor-clinics/`)
+### 2.4. Doctor-Clinic Associations (`/api/v1/clinics/...` & `/api/v1/doctors/...`)
 
+#### Clinic Owner Endpoints
 | Method | Endpoint | Access Role | Description |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/doctor-clinics/{id}/` | Owner / Doctor | View association details, fee, slot duration |
-| `PATCH`| `/doctor-clinics/{id}/` | Owner / Doctor | Update `consultation_fee`, `appointment_duration` |
-| `POST` | `/doctor-clinics/{id}/pause/` | Owner / Doctor | Temporarily pause bookings for this clinic |
-| `POST` | `/doctor-clinics/{id}/terminate/` | Owner / Doctor | Terminate doctor-clinic association |
+| `GET` | `/clinics/{clinic_id}/doctors/` | Clinic Owner / Super Admin | List doctors affiliated with clinic and their statuses (filter `?status=`) |
+| `POST` | `/clinics/{clinic_id}/doctor-invitations/` | Clinic Owner / Super Admin | Invite verified doctor to approved clinic (handles safe re-invitation) |
+| `GET` | `/clinics/{clinic_id}/doctor-invitations/` | Clinic Owner / Super Admin | List pending/filtered doctor invitations for clinic |
+| `PATCH`| `/clinics/{clinic_id}/doctors/{association_id}/settings/` | Clinic Owner / Super Admin | Update clinic-specific consultation fee, follow-up fee, slot duration |
+| `POST` | `/clinics/{clinic_id}/doctors/{association_id}/remove/` | Clinic Owner / Super Admin | End active association (`ACTIVE` -> `REMOVED`) without deleting doctor profile |
+
+#### Doctor Endpoints
+| Method | Endpoint | Access Role | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/doctors/me/clinics/` | Doctor | List doctor's clinic associations across platform (filter `?status=`) |
+| `GET` | `/doctors/me/clinic-invitations/` | Doctor | List pending clinic invitations awaiting doctor decision |
+| `POST` | `/doctors/me/clinic-invitations/{association_id}/accept/` | Doctor | Accept clinic invitation (`INVITED` -> `ACTIVE`) |
+| `POST` | `/doctors/me/clinic-invitations/{association_id}/reject/` | Doctor | Decline clinic invitation (`INVITED` -> `REJECTED`) |
 
 ---
 

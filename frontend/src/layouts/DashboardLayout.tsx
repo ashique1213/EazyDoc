@@ -108,6 +108,13 @@ export function DashboardLayout({ roleTitle = "Dashboard" }: DashboardLayoutProp
                 <span>Doctor Profile</span>
               </Link>
               <Link
+                to="/doctor/clinics"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Building2 className="h-4 w-4" />
+                <span>Associated Clinics</span>
+              </Link>
+              <Link
                 to="/doctor/verification"
                 className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               >

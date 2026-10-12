@@ -3,22 +3,29 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowRight,
+  Building2,
   CalendarCheck,
   CheckCircle2,
   Clock,
   Edit3,
   FileText,
   ShieldCheck,
-  Stethoscope,
   UserPlus,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { useDoctorMe } from "@/features/doctors";
+import { useDoctorClinics, useDoctorClinicInvitations } from "@/features/doctorClinics";
 
 export function DoctorPage() {
   const { data: doctor, isLoading } = useDoctorMe();
+  const { data: associations } = useDoctorClinics();
+  const { data: pendingInvitations } = useDoctorClinicInvitations();
+
+  const activeClinicsCount = associations?.filter((a) => a.status === "ACTIVE").length || 0;
+  const pendingCount = pendingInvitations?.length || 0;
 
   return (
     <div className="space-y-6">
@@ -116,21 +123,44 @@ export function DoctorPage() {
               </AlertDescription>
             </Alert>
           ) : null}
+
+          {/* Pending Invitations Alert */}
+          {pendingCount > 0 && (
+            <Alert className="border-blue-500/30 bg-blue-500/10 text-blue-800 dark:text-blue-300">
+              <Clock className="h-4 w-4 text-blue-600" />
+              <AlertTitle className="text-sm font-semibold flex items-center gap-2">
+                Pending Clinic Invitations
+                <Badge className="bg-blue-600 text-white text-[10px] h-5">{pendingCount} New</Badge>
+              </AlertTitle>
+              <AlertDescription className="text-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-1">
+                <span>
+                  You have {pendingCount} new healthcare establishment invitation(s) awaiting your decision.
+                </span>
+                <Link to="/doctor/clinics">
+                  <Button size="sm" className="h-7 text-xs gap-1 shadow-sm">
+                    Review Invitations <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </Link>
+              </AlertDescription>
+            </Alert>
+          )}
         </>
       )}
 
       {/* Metrics Row */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Affiliated Clinics</CardTitle>
-            <Stethoscope className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">--</div>
-            <p className="text-xs text-muted-foreground">Connected practices</p>
-          </CardContent>
-        </Card>
+        <Link to="/doctor/clinics" className="block group">
+          <Card className="group-hover:border-primary/50 transition-colors">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Affiliated Clinics</CardTitle>
+              <Building2 className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{activeClinicsCount}</div>
+              <p className="text-xs text-muted-foreground">Connected practices</p>
+            </CardContent>
+          </Card>
+        </Link>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -167,10 +197,33 @@ export function DoctorPage() {
       </div>
 
       {/* Overview Quick Links */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Doctor Profile & Medical Registration</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-primary" />
+              Practice Network & Clinics
+            </CardTitle>
+            <CardDescription className="text-xs">
+              View your associated clinics, check independent consultation fees, and respond to invitations.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link to="/doctor/clinics">
+              <Button variant="outline" size="sm" className="text-xs gap-1.5">
+                <Building2 className="h-3.5 w-3.5" />
+                Manage Affiliated Clinics
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Edit3 className="h-4 w-4 text-primary" />
+              Doctor Profile Details
+            </CardTitle>
             <CardDescription className="text-xs">
               Manage your personal practice identity, qualifications, languages, and biography.
             </CardDescription>
@@ -187,7 +240,10 @@ export function DoctorPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Registration Evidence & Verification</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              Registration Evidence
+            </CardTitle>
             <CardDescription className="text-xs">
               Upload registration certificates, degree proofs, and track council verification review.
             </CardDescription>

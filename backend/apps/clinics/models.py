@@ -1,5 +1,7 @@
+from decimal import Decimal
 import uuid
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
@@ -133,3 +135,151 @@ class Clinic(models.Model):
         # Ensure is_verified stays aligned with status
         self.is_verified = self.status == ClinicStatus.APPROVED
         super().save(*args, **kwargs)
+
+
+class DoctorClinicStatus(models.TextChoices):
+    """
+    Lifecycle statuses for doctor-clinic affiliation.
+    Transitions:
+      INVITED -> ACTIVE (Doctor accepts invitation)
+      INVITED -> REJECTED (Doctor rejects invitation)
+      ACTIVE -> REMOVED (Clinic owner ends active association)
+      ACTIVE -> SUSPENDED (Administrator suspends association)
+      REJECTED / REMOVED -> INVITED (Clinic owner re-invites doctor)
+      SUSPENDED -> ACTIVE (Administrator reactivates association)
+    """
+    INVITED = "INVITED", _("Invited")
+    ACTIVE = "ACTIVE", _("Active")
+    REJECTED = "REJECTED", _("Rejected")
+    REMOVED = "REMOVED", _("Removed")
+    SUSPENDED = "SUSPENDED", _("Suspended")
+
+
+class DoctorClinic(models.Model):
+    """
+    Associative relationship linking a reusable global Doctor profile to a Clinic.
+    Stores clinic-specific commercial terms (consultation fees, duration) independently per clinic.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    doctor = models.ForeignKey(
+        "doctors.Doctor",
+        on_delete=models.CASCADE,
+        related_name="clinic_associations",
+        verbose_name=_("doctor profile"),
+        db_index=True,
+    )
+    clinic = models.ForeignKey(
+        Clinic,
+        on_delete=models.CASCADE,
+        related_name="doctor_associations",
+        verbose_name=_("clinic"),
+        db_index=True,
+    )
+    status = models.CharField(
+        _("association status"),
+        max_length=20,
+        choices=DoctorClinicStatus.choices,
+        default=DoctorClinicStatus.INVITED,
+        db_index=True,
+    )
+    invited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sent_doctor_invitations",
+        verbose_name=_("invited by"),
+        help_text=_("User who initiated the invitation."),
+    )
+    invitation_message = models.TextField(
+        _("invitation message"),
+        blank=True,
+        default="",
+        help_text=_("Optional welcome note or affiliation terms."),
+    )
+    consultation_fee = models.DecimalField(
+        _("consultation fee"),
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text=_("Clinic-specific consultation fee in INR."),
+    )
+    follow_up_fee = models.DecimalField(
+        _("follow-up consultation fee"),
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text=_("Optional clinic-specific follow-up consultation fee in INR."),
+    )
+    appointment_duration_minutes = models.PositiveIntegerField(
+        _("appointment duration (minutes)"),
+        default=15,
+        help_text=_("Standard appointment slot duration in minutes (between 5 and 240 minutes)."),
+    )
+    accepted_at = models.DateTimeField(
+        _("accepted at"),
+        null=True,
+        blank=True,
+        help_text=_("Timestamp when the doctor accepted the invitation."),
+    )
+    rejected_at = models.DateTimeField(
+        _("rejected at"),
+        null=True,
+        blank=True,
+        help_text=_("Timestamp when the doctor rejected the invitation."),
+    )
+    removed_at = models.DateTimeField(
+        _("removed at"),
+        null=True,
+        blank=True,
+        help_text=_("Timestamp when the clinic owner ended the active association."),
+    )
+    created_at = models.DateTimeField(_("created at"), auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(_("updated at"), auto_now=True)
+
+    class Meta:
+        db_table = "doctor_clinics_doctorclinic"
+        verbose_name = _("doctor clinic association")
+        verbose_name_plural = _("doctor clinic associations")
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["doctor", "clinic"],
+                name="unique_doctor_clinic_association",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(status__in=DoctorClinicStatus.values),
+                name="valid_doctor_clinic_status",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(consultation_fee__gte=0),
+                name="valid_doctor_clinic_consultation_fee",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(follow_up_fee__gte=0),
+                name="valid_doctor_clinic_follow_up_fee",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(appointment_duration_minutes__gte=5, appointment_duration_minutes__lte=240),
+                name="valid_doctor_clinic_duration",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["clinic", "status"]),
+            models.Index(fields=["doctor", "status"]),
+            models.Index(fields=["status", "created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.doctor.full_name} @ {self.clinic.name} ({self.status})"
+
+    def clean(self):
+        super().clean()
+        if self.consultation_fee is not None and self.consultation_fee < Decimal("0.00"):
+            raise ValidationError({"consultation_fee": _("Consultation fee cannot be negative.")})
+        if self.follow_up_fee is not None and self.follow_up_fee < Decimal("0.00"):
+            raise ValidationError({"follow_up_fee": _("Follow-up fee cannot be negative.")})
+        if self.appointment_duration_minutes is not None:
+            if self.appointment_duration_minutes < 5 or self.appointment_duration_minutes > 240:
+                raise ValidationError({"appointment_duration_minutes": _("Duration must be between 5 and 240 minutes.")})
