@@ -162,16 +162,18 @@ export function DoctorPage() {
           </Card>
         </Link>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Today's Schedule</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">--</div>
-            <p className="text-xs text-muted-foreground">Total appointments</p>
-          </CardContent>
-        </Card>
+        <Link to="/doctor/schedules" className="block group">
+          <Card className="group-hover:border-primary/50 transition-colors">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Multi-Clinic Schedules</CardTitle>
+              <Clock className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">Manage</div>
+              <p className="text-xs text-muted-foreground">Weekly shifts & leaves</p>
+            </CardContent>
+          </Card>
+        </Link>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">

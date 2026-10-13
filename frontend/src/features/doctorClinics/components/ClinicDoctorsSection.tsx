@@ -26,6 +26,7 @@ import { DoctorClinicStatusBadge } from "./DoctorClinicStatusBadge";
 import { InviteDoctorModal } from "./InviteDoctorModal";
 import { ClinicDoctorSettingsModal } from "./ClinicDoctorSettingsModal";
 import { RemoveDoctorModal } from "./RemoveDoctorModal";
+import { AvailabilityPreviewModal } from "@/features/schedules";
 
 interface ClinicDoctorsSectionProps {
   clinicId: string;
@@ -43,6 +44,7 @@ export const ClinicDoctorsSection: React.FC<ClinicDoctorsSectionProps> = ({
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [selectedAssocForSettings, setSelectedAssocForSettings] = useState<DoctorClinic | null>(null);
   const [selectedAssocForRemoval, setSelectedAssocForRemoval] = useState<DoctorClinic | null>(null);
+  const [selectedAssocForSchedule, setSelectedAssocForSchedule] = useState<DoctorClinic | null>(null);
 
   const activeCount = doctors?.filter((d) => d.status === "ACTIVE").length || 0;
   const pendingCount = doctors?.filter((d) => d.status === "INVITED").length || 0;
@@ -238,6 +240,16 @@ export const ClinicDoctorsSection: React.FC<ClinicDoctorsSectionProps> = ({
                           <Button
                             variant="outline"
                             size="sm"
+                            onClick={() => setSelectedAssocForSchedule(assoc)}
+                            className="h-7 text-xs px-2 gap-1 text-primary hover:text-primary font-medium"
+                            title="Inspect bookable slots and availability"
+                          >
+                            <Clock className="h-3 w-3" />
+                            Schedule
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => setSelectedAssocForSettings(assoc)}
                             className="h-7 text-xs px-2 gap-1 text-muted-foreground hover:text-foreground"
                             title="Edit consultation fee and appointment slot duration"
@@ -305,6 +317,13 @@ export const ClinicDoctorsSection: React.FC<ClinicDoctorsSectionProps> = ({
         isOpen={Boolean(selectedAssocForRemoval)}
         onClose={() => setSelectedAssocForRemoval(null)}
         onSuccess={() => refetch()}
+      />
+
+      <AvailabilityPreviewModal
+        isOpen={Boolean(selectedAssocForSchedule)}
+        onClose={() => setSelectedAssocForSchedule(null)}
+        doctorClinicId={selectedAssocForSchedule?.id || ""}
+        doctorName={selectedAssocForSchedule?.doctor.full_name}
       />
     </div>
   );

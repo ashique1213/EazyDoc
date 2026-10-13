@@ -22,6 +22,7 @@ import {
 } from "@/features/clinics";
 import type { ClinicUpdatePayload } from "@/features/clinics";
 import { ClinicDoctorsSection } from "@/features/doctorClinics";
+import { ClinicSchedulesSection } from "@/features/schedules";
 
 export function ClinicDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -31,7 +32,7 @@ export function ClinicDetailPage() {
 
   const [serverErrors, setServerErrors] = useState<Record<string, string[] | string> | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"profile" | "doctors">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "doctors" | "schedules">("profile");
 
   if (isLoading) {
     return (
@@ -223,6 +224,15 @@ export function ClinicDetailPage() {
           <Stethoscope className="h-3.5 w-3.5" />
           Doctor Affiliations & Fees
         </Button>
+        <Button
+          variant={activeTab === "schedules" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setActiveTab("schedules")}
+          className="text-xs gap-1.5 h-8 font-medium"
+        >
+          <Clock className="h-3.5 w-3.5" />
+          Schedules & Availability
+        </Button>
       </div>
 
       {activeTab === "profile" ? (
@@ -234,10 +244,17 @@ export function ClinicDetailPage() {
           serverErrors={serverErrors}
           mode="edit"
         />
-      ) : (
+      ) : activeTab === "doctors" ? (
         /* Doctor Affiliations Section */
         <ClinicDoctorsSection
           clinicId={clinic.id}
+          isClinicApproved={clinic.status === "APPROVED"}
+        />
+      ) : (
+        /* Schedules & Availability Section */
+        <ClinicSchedulesSection
+          clinicId={clinic.id}
+          clinicName={clinic.name}
           isClinicApproved={clinic.status === "APPROVED"}
         />
       )}

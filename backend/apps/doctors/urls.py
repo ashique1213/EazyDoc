@@ -13,6 +13,7 @@ from .views import (
     DoctorSubmitVerificationView,
     SpecializationListView,
 )
+from apps.schedules.views import DoctorMasterScheduleView
 
 app_name = "doctors"
 
@@ -34,4 +35,6 @@ urlpatterns = [
     path("registration-lookup/", DoctorRegistrationLookupView.as_view(), name="doctor-registration-lookup"),
     # Specializations Catalog
     path("specializations/", SpecializationListView.as_view(), name="specializations-list"),
+    # Doctor Multi-Clinic Master Schedule
+    path("me/master-schedule/", DoctorMasterScheduleView.as_view(), name="doctor-master-schedule"),
 ]

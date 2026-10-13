@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   Loader2,
   ShieldCheck,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -113,6 +114,13 @@ export function DashboardLayout({ roleTitle = "Dashboard" }: DashboardLayoutProp
               >
                 <Building2 className="h-4 w-4" />
                 <span>Associated Clinics</span>
+              </Link>
+              <Link
+                to="/doctor/schedules"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Calendar className="h-4 w-4 text-primary" />
+                <span>Schedule & Leaves</span>
               </Link>
               <Link
                 to="/doctor/verification"
