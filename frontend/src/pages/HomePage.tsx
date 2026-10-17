@@ -40,14 +40,17 @@ export function HomePage() {
         </p>
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-          <Link to="/patient">
-            <Button size="lg" className="gap-2">
-              Book Appointment <ArrowRight className="h-4 w-4" />
+          <Link to="/doctors">
+            <Button size="lg" className="gap-2 shadow-sm">
+              <Stethoscope className="h-4 w-4" />
+              <span>Find Doctors</span>
+              <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
-          <Link to="/clinic">
-            <Button size="lg" variant="outline">
-              Clinic Management
+          <Link to="/clinics">
+            <Button size="lg" variant="outline" className="gap-2">
+              <Building2 className="h-4 w-4" />
+              <span>Explore Clinics</span>
             </Button>
           </Link>
         </div>
@@ -107,9 +110,9 @@ export function HomePage() {
             <CardDescription>Search verified doctors, view clinic slots, and pay online.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Link to="/patient">
+            <Link to="/doctors">
               <Button variant="ghost" size="sm" className="w-full justify-between">
-                Visit Portal <ArrowRight className="h-4 w-4" />
+                Find Doctors <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
           </CardContent>

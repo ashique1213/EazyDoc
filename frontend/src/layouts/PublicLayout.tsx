@@ -24,8 +24,11 @@ export function PublicLayout() {
           </Link>
 
           <nav className="hidden items-center space-x-6 text-sm font-medium md:flex">
-            <Link to="/" className="text-muted-foreground transition hover:text-foreground">
+            <Link to="/doctors" className="text-muted-foreground transition hover:text-foreground">
               Find Doctors
+            </Link>
+            <Link to="/clinics" className="text-muted-foreground transition hover:text-foreground">
+              Clinics
             </Link>
             <Link to="/clinic" className="text-muted-foreground transition hover:text-foreground">
               For Clinics

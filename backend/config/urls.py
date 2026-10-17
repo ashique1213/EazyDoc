@@ -27,6 +27,7 @@ api_v1_patterns = [
     path("reviews/", include("apps.reviews.urls", namespace="reviews")),
     path("analytics/", include("apps.analytics.urls", namespace="analytics")),
     path("audit/", include("apps.audit_logs.urls", namespace="audit_logs")),
+    path("public/", include("apps.public.urls", namespace="public")),
 ]
 
 urlpatterns = [

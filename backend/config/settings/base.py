@@ -58,6 +58,7 @@ LOCAL_APPS = [
     "apps.reviews.apps.ReviewsConfig",
     "apps.analytics.apps.AnalyticsConfig",
     "apps.audit_logs.apps.AuditLogsConfig",
+    "apps.public.apps.PublicConfig",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS

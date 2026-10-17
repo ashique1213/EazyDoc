@@ -209,3 +209,38 @@
 | `GET` | `/admin/settings/` | Super Admin | List platform settings (commission %, etc.) |
 | `PATCH`| `/admin/settings/{key}/` | Super Admin | Update platform setting value |
 | `GET` | `/admin/audit-logs/` | Super Admin | Query immutable system audit logs |
+
+---
+
+### 2.11. Public Doctor and Clinic Discovery (`/api/v1/public/`)
+
+| Method | Endpoint | Access Role | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/public/doctors/` | Public (AllowAny) | Search verified doctors with active clinic associations. Supports name, specialization, city, area, clinic, date, ordering, pagination. |
+| `GET` | `/public/doctors/{doctor_id}/` | Public (AllowAny) | Retrieve doctor's public professional profile and eligible practice locations with clinic-specific fees. |
+| `GET` | `/public/clinics/` | Public (AllowAny) | Search approved and active clinics by name, city, area, or service. Includes doctor count and pagination. |
+| `GET` | `/public/clinics/{clinic_id}/` | Public (AllowAny) | Retrieve approved clinic details and currently practicing verified doctors with clinic-specific fees (supports UUID or slug). |
+| `GET` | `/public/clinics/{clinic_id}/doctors/{doctor_id}/availability/?date=YYYY-MM-DD` | Public (AllowAny) | Real-time candidate appointment slots computed using clinic timezone, active shifts, doctor leaves, and administrative blocked slots. |
+| `GET` | `/public/specializations/` | Public (AllowAny) | Catalog of medical specializations for search filter dropdowns. |
+| `GET` | `/public/cities/` | Public (AllowAny) | Distinct list of cities where approved clinics are currently operating. |
+
+#### Public Data Visibility Rules & Security Boundaries:
+1. **Doctors in Public Search:**
+   - Must have `verification_status == VERIFIED` and `is_verified == True`.
+   - Linked user account must have `is_active == True` and `status == ACTIVE`.
+   - Must have at least one active association (`DoctorClinic.status == ACTIVE`) with an approved, active clinic (`Clinic.status == APPROVED`).
+   - Doctors with pending, rejected, suspended, or draft status are strictly excluded.
+2. **Clinics in Public Search:**
+   - Must have `status == APPROVED` and `is_verified == True`.
+   - Suspended, pending, or draft clinics are strictly excluded.
+3. **Multi-Clinic Doctor Semantics:**
+   - General doctor search returns exactly one doctor record per practitioner (deduplicated across clinics).
+   - If a clinic filter is applied, only the matching clinic practice location is attached, preserving the doctor's unique identity.
+   - Clinic-specific consultation fees and appointment durations are maintained independently per association without arbitrary fee blending.
+4. **Strictly Prohibited Fields (Never Leaked in Public Responses):**
+   - Doctor medical council documents / uploaded verification certificates (`DoctorDocument`).
+   - Private user account credentials, emails, personal phone numbers, and password hashes.
+   - Internal super administrator review notes (`verification_notes`).
+   - Private invitation tokens, invitation messages, and commission rates.
+   - Other tenants' private schedule configurations or patient data.
+

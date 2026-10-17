@@ -28,6 +28,11 @@ import AdminDoctorDetailPage from "@/pages/admin/AdminDoctorDetailPage";
 
 import { ProtectedRoute } from "@/features/auth";
 
+import DoctorSearchPage from "@/pages/discovery/DoctorSearchPage";
+import DoctorDetailPage from "@/pages/discovery/DoctorDetailPage";
+import ClinicSearchPage from "@/pages/discovery/ClinicSearchPage";
+import PublicClinicDetailPage from "@/pages/discovery/PublicClinicDetailPage";
+
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -36,6 +41,22 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <HomePage />,
+      },
+      {
+        path: "doctors",
+        element: <DoctorSearchPage />,
+      },
+      {
+        path: "doctors/:doctorId",
+        element: <DoctorDetailPage />,
+      },
+      {
+        path: "clinics",
+        element: <ClinicSearchPage />,
+      },
+      {
+        path: "clinics/:clinicId",
+        element: <PublicClinicDetailPage />,
       },
     ],
   },
