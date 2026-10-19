@@ -30,6 +30,11 @@ export function PublicLayout() {
             <Link to="/clinics" className="text-muted-foreground transition hover:text-foreground">
               Clinics
             </Link>
+            {user?.role === "PATIENT" && (
+              <Link to="/my-appointments" className="text-primary font-semibold transition hover:underline">
+                My Appointments
+              </Link>
+            )}
             <Link to="/clinic" className="text-muted-foreground transition hover:text-foreground">
               For Clinics
             </Link>

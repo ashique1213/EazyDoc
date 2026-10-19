@@ -9,6 +9,7 @@ from .views import (
     ClinicSubmitView,
     MyClinicsListView,
 )
+from apps.appointments.views import ClinicAppointmentsListView
 
 app_name = "clinics"
 
@@ -22,4 +23,5 @@ urlpatterns = [
     path("<uuid:clinic_id>/doctor-invitations/", ClinicDoctorInvitationView.as_view(), name="clinic-doctor-invitations"),
     path("<uuid:clinic_id>/doctors/<uuid:association_id>/settings/", ClinicDoctorSettingsUpdateView.as_view(), name="clinic-doctor-settings"),
     path("<uuid:clinic_id>/doctors/<uuid:association_id>/remove/", ClinicDoctorRemoveView.as_view(), name="clinic-doctor-remove"),
+    path("<uuid:clinic_id>/appointments/", ClinicAppointmentsListView.as_view(), name="clinic-appointments"),
 ]

@@ -206,6 +206,7 @@ def check_schedule_conflicts(
 def generate_doctor_availability_slots(
     doctor_clinic: DoctorClinic,
     target_date: date,
+    check_past: bool = False,
 ) -> Dict[str, Any]:
     """
     Computes precise, bookable appointment slots for a given doctor-clinic affiliation and date:
@@ -292,9 +293,33 @@ def generate_doctor_availability_slots(
         BlockedSlot.objects.filter(doctor_clinic=doctor_clinic, date=target_date)
     )
 
-    generated_slots: List[Dict[str, Any]] = []
+    # 6. Fetch existing active appointments for doctor across ALL clinics
+    appointments = []
+    try:
+        from apps.appointments.models import Appointment, AppointmentStatus
+        buffer_margin = timedelta(minutes=120)
+        appointments = list(
+            Appointment.objects.filter(doctor=doctor)
+            .filter(
+                status__in=[
+                    AppointmentStatus.CONFIRMED,
+                    AppointmentStatus.PENDING_CONFIRMATION,
+                    AppointmentStatus.COMPLETED,
+                ]
+            )
+            .filter(
+                start_at__lt=day_end_utc + buffer_margin,
+                end_at__gt=day_start_utc - buffer_margin,
+            )
+            .select_related("clinic")
+        )
+    except Exception:
+        appointments = []
 
-    # 6. Generate discrete slots per shift
+    generated_slots: List[Dict[str, Any]] = []
+    now_utc = datetime.now(dt_timezone.utc)
+
+    # 7. Generate discrete slots per shift
     for shift in active_shifts:
         slot_duration = shift.effective_slot_duration
         current_time = shift.start_time
@@ -316,12 +341,18 @@ def generate_doctor_availability_slots(
             is_slot_available = True
             unavailable_reason = None
 
+            # Past slot check (Rule 10)
+            if check_past and slot_start_utc <= now_utc:
+                is_slot_available = False
+                unavailable_reason = "Slot is in the past"
+
             # Check Doctor Unavailability / Leave
-            for unavail in unavailabilities:
-                if slot_start_utc < unavail.end_datetime and slot_end_utc > unavail.start_datetime:
-                    is_slot_available = False
-                    unavailable_reason = f"Doctor unavailable ({unavail.get_reason_display()})"
-                    break
+            if is_slot_available:
+                for unavail in unavailabilities:
+                    if slot_start_utc < unavail.end_datetime and slot_end_utc > unavail.start_datetime:
+                        is_slot_available = False
+                        unavailable_reason = f"Doctor unavailable ({unavail.get_reason_display()})"
+                        break
 
             # Check Administrative Blocked Slot
             if is_slot_available:
@@ -334,6 +365,37 @@ def generate_doctor_availability_slots(
                         is_slot_available = False
                         unavailable_reason = f"Blocked: {blocked.reason or 'Administrative reservation'}"
                         break
+
+            # Check Existing Active Appointments and Cross-Clinic Travel Buffer
+            if is_slot_available:
+                travel_buffer_mins = max(30, shift.buffer_minutes)
+                travel_buffer_delta = timedelta(minutes=travel_buffer_mins)
+
+                for appt in appointments:
+                    is_same_clinic = str(appt.clinic_id) == str(clinic.id)
+
+                    # 1. Direct Interval Overlap: max(slot_start, appt_start) < min(slot_end, appt_end)
+                    if slot_start_utc < appt.end_at and slot_end_utc > appt.start_at:
+                        is_slot_available = False
+                        unavailable_reason = "Slot already booked"
+                        break
+
+                    # 2. Cross-Clinic Travel Buffer Violation (Rule 9 & 14)
+                    if not is_same_clinic:
+                        # Slot is after appointment -> gap is slot_start_utc - appt.end_at
+                        if slot_start_utc >= appt.end_at:
+                            gap_seconds = (slot_start_utc - appt.end_at).total_seconds()
+                            if gap_seconds < travel_buffer_mins * 60:
+                                is_slot_available = False
+                                unavailable_reason = f"Cross-clinic travel buffer conflict with appointment at {appt.clinic.name}"
+                                break
+                        # Slot is before appointment -> gap is appt.start_at - slot_end_utc
+                        elif slot_end_utc <= appt.start_at:
+                            gap_seconds = (appt.start_at - slot_end_utc).total_seconds()
+                            if gap_seconds < travel_buffer_mins * 60:
+                                is_slot_available = False
+                                unavailable_reason = f"Cross-clinic travel buffer conflict with appointment at {appt.clinic.name}"
+                                break
 
             generated_slots.append({
                 "schedule_id": str(shift.id),

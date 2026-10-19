@@ -130,6 +130,30 @@ export function DashboardLayout({ roleTitle = "Dashboard" }: DashboardLayoutProp
                 <span>Verification Status</span>
               </Link>
             </>
+          ) : user?.role === "PATIENT" ? (
+            <>
+              <Link
+                to="/patient"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors"
+              >
+                <LayoutDashboard className="h-4 w-4 text-primary" />
+                <span>Overview</span>
+              </Link>
+              <Link
+                to="/my-appointments"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Calendar className="h-4 w-4" />
+                <span>My Appointments</span>
+              </Link>
+              <Link
+                to="/doctors"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Stethoscope className="h-4 w-4" />
+                <span>Find Doctors</span>
+              </Link>
+            </>
           ) : (
             <div className="flex items-center space-x-3 rounded-lg bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
               <LayoutDashboard className="h-4 w-4" />

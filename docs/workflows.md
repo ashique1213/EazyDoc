@@ -307,3 +307,54 @@
       │                          │                              │   - Upload to S3        │
       │                          │                              │   - Send Download Link ─►
 ```
+
+---
+
+## 10. Patient Appointment Booking & Anti-Double-Booking Workflow (Day 9)
+
+```
+[Patient Browser]                [Backend REST API]                 [PostgreSQL Database]
+      │                                 │                                    │
+      │── 1. Select Clinic & Doctor ───►│                                    │
+      │   Choose Date & Slot            │                                    │
+      │                                 │                                    │
+      │── 2. POST /api/v1/appointments/►│                                    │
+      │   Headers: Idempotency-Key      │                                    │
+      │   Body: clinic_id, doctor_id,   │                                    │
+      │         start_at, patient_note  │                                    │
+      │                                 │── 3. Check Idempotency Key ───────►│
+      │                                 │      (Return cached if replay)     │
+      │                                 │                                    │
+      │                                 │── 4. BEGIN TRANSACTION ───────────►│
+      │                                 │   SELECT * FROM doctors_doctor     │
+      │                                 │   WHERE id = $id FOR UPDATE; ─────►│ (Row-level Doctor Lock)
+      │                                 │                                    │
+      │                                 │── 5. Revalidate Eligibility ──────►│
+      │                                 │   - Doctor verified & active       │
+      │                                 │   - Clinic approved                │
+      │                                 │   - Association active             │
+      │                                 │   - Slot in doctor's shift         │
+      │                                 │   - No unavailabilities / blocks   │
+      │                                 │   - No cross-clinic buffer conflict│
+      │                                 │                                    │
+      │                                 │── 6. Snapshot Consultation Fee ────│
+      │                                 │      from DoctorClinic record      │
+      │                                 │                                    │
+      │                                 │── 7. INSERT Appointment ──────────►│
+      │                                 │      (PG Exclusion Constraint      │
+      │                                 │       validates non-overlapping)   │
+      │                                 │                                    │
+      │                                 │── 8. INSERT Idempotency Record ───►│
+      │                                 │── 9. COMMIT TRANSACTION ──────────►│
+      │◄─ 10. 201 Created (Appointment)─┤                                    │
+      │   Navigate to Confirmation Page │                                    │
+```
+
+### Key Business Invariants Enforced:
+1. **Timezone Interpretation:** Slot dates and times are evaluated strictly in the clinic's operating timezone (default: `Asia/Kolkata`) and stored as UTC timestamps in the database.
+2. **Fee Snapshotting:** The clinic-specific consultation fee is immutably captured on the `Appointment` row at booking time. Future fee changes at the clinic do not affect existing appointments.
+3. **Concurrency Protection:** Defense-in-depth using PostgreSQL pessimistic row-level locking (`select_for_update`) on the `Doctor` record coupled with a PostgreSQL `btree_gist` exclusion constraint prevents concurrent double-booking.
+4. **Cross-Clinic Travel Buffers:** If a doctor has appointments at Clinic A and Clinic B on the same day, a minimum 30-minute transition buffer is enforced between clinics.
+5. **Idempotency Guarantee:** Client-submitted `Idempotency-Key` headers paired with request payload hashes ensure network retries and duplicate button clicks replay original responses without creating duplicate appointments.
+6. **Object-Level Security:** Patients can only view their own bookings; clinic owners only access appointments at clinics they own; doctors only access appointments associated with their doctor profile.
+

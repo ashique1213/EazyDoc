@@ -33,6 +33,9 @@ import DoctorDetailPage from "@/pages/discovery/DoctorDetailPage";
 import ClinicSearchPage from "@/pages/discovery/ClinicSearchPage";
 import PublicClinicDetailPage from "@/pages/discovery/PublicClinicDetailPage";
 
+import AppointmentDetailPage from "@/pages/appointments/AppointmentDetailPage";
+import PatientAppointmentsPage from "@/pages/appointments/PatientAppointmentsPage";
+
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -57,6 +60,18 @@ export const router = createBrowserRouter([
       {
         path: "clinics/:clinicId",
         element: <PublicClinicDetailPage />,
+      },
+      {
+        path: "appointments/:appointmentId",
+        element: <AppointmentDetailPage />,
+      },
+      {
+        path: "my-appointments",
+        element: (
+          <ProtectedRoute allowedRoles={["PATIENT"]}>
+            <PatientAppointmentsPage />
+          </ProtectedRoute>
+        ),
       },
     ],
   },
@@ -156,6 +171,10 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <PatientPage />,
+      },
+      {
+        path: "appointments",
+        element: <PatientAppointmentsPage />,
       },
     ],
   },

@@ -149,15 +149,16 @@
 
 | Method | Endpoint | Access Role | Description |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/appointments/available-slots/` | Public | Query available time slots for Doctor + Clinic + Date |
-| `POST` | `/appointments/hold-slot/` | Patient | Acquire temporary 10-minute hold token in Redis |
-| `POST` | `/appointments/book/` | Patient | Create `PENDING` appointment and generate Razorpay Order |
-| `GET` | `/appointments/` | Authenticated | List appointments (scoped: patient/doctor/clinic) |
-| `GET` | `/appointments/{id}/` | Authenticated | Detailed appointment view |
-| `POST` | `/appointments/{id}/cancel/` | Patient / Staff | Cancel appointment (enforces 11:59 PM deadline for patient) |
-| `POST` | `/appointments/{id}/reschedule/` | Patient / Staff | Reschedule appointment to a new date/time slot |
-| `POST` | `/appointments/{id}/check-in/` | Staff / Owner | Mark patient arrived; issue daily token number |
-| `POST` | `/appointments/{id}/call/` | Doctor | Mark patient `IN_CONSULTATION` (broadcasts WS event) |
+| `POST` | `/appointments/` | Patient | Book appointment atomically (concurrency protection, idempotency, fee snapshotting) |
+| `GET` | `/appointments/my/` | Patient | List authenticated patient's bookings (filter `?filter=upcoming\|past&status=&date=`) |
+| `GET` | `/appointments/{appointment_id}/` | Patient / Doctor / Owner / Staff | Detailed view of authorized appointment |
+| `GET` | `/clinics/{clinic_id}/appointments/` | Clinic Owner / Staff | List appointments for clinic (filter `?doctor_id=&status=&date=&filter=`) |
+| `GET` | `/doctors/me/appointments/` | Doctor | List doctor's appointments across all clinics (filter `?clinic_id=&status=&date=&filter=`) |
+| `GET` | `/public/clinics/{clinic_id}/doctors/{doctor_id}/availability/` | Public | Real-time candidate slots with booked slot and cross-clinic buffer filtering |
+| `POST` | `/appointments/{id}/cancel/` | Patient / Staff | (Future) Cancel appointment with deadline validation |
+| `POST` | `/appointments/{id}/reschedule/` | Patient / Staff | (Future) Reschedule appointment to a new date/time slot |
+| `POST` | `/appointments/{id}/check-in/` | Staff / Owner | (Future) Mark patient arrived; issue daily token number |
+| `POST` | `/appointments/{id}/call/` | Doctor | (Future) Mark patient `IN_CONSULTATION` (broadcasts WS event) |
 | `POST` | `/appointments/{id}/complete/` | Doctor | Mark consultation finished |
 
 ---

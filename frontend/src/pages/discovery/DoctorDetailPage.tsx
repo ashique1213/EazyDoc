@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useDoctorAvailability, useDoctorDetail } from "@/features/discovery";
 import { useAuthStore } from "@/features/auth";
+import { BookingReviewModal } from "@/features/appointments/BookingReviewModal";
 
 export function DoctorDetailPage() {
   const { doctorId } = useParams<{ doctorId: string }>();
@@ -59,6 +60,7 @@ export function DoctorDetailPage() {
 
   // Selected Slot
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState<boolean>(false);
 
   // Active clinic object
   const activeLocation = locations.find((l) => l.clinic_id === selectedClinicId) || locations[0];
@@ -68,6 +70,7 @@ export function DoctorDetailPage() {
     data: availability,
     isLoading: isLoadingSlots,
     isError: isSlotsError,
+    refetch: refetchAvailability,
   } = useDoctorAvailability(
     activeLocation?.clinic_id,
     doctor?.id,
@@ -518,14 +521,17 @@ export function DoctorDetailPage() {
                       </div>
 
                       {isAuthenticated && user?.role === "PATIENT" ? (
-                        <Link to="/patient">
-                          <Button size="lg" className="w-full gap-2 sm:w-auto">
-                            <span>Continue to Patient Portal</span>
-                            <ArrowRight className="h-4 w-4" />
-                          </Button>
-                        </Link>
+                        <Button
+                          size="lg"
+                          onClick={() => setIsBookingModalOpen(true)}
+                          className="w-full gap-2 font-bold sm:w-auto"
+                        >
+                          <CalendarCheck className="h-4 w-4" />
+                          <span>Review & Book Slot</span>
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
                       ) : (
-                        <Link to="/login">
+                        <Link to={`/login?redirect=/doctors/${doctor.id}?clinicId=${activeLocation?.clinic_id}`}>
                           <Button size="lg" className="w-full gap-2 sm:w-auto">
                             <span>Sign in to Book</span>
                             <ArrowRight className="h-4 w-4" />
@@ -534,6 +540,27 @@ export function DoctorDetailPage() {
                       )}
                     </div>
                   </div>
+                )}
+
+                {/* Booking Review Modal */}
+                {isBookingModalOpen && activeLocation && selectedSlot && (
+                  (() => {
+                    const slotObj = availability?.slots.find((s) => s.start_time === selectedSlot);
+                    if (!slotObj) return null;
+                    return (
+                      <BookingReviewModal
+                        isOpen={isBookingModalOpen}
+                        onClose={() => setIsBookingModalOpen(false)}
+                        doctor={doctor}
+                        clinicLocation={activeLocation}
+                        selectedDate={selectedDate}
+                        selectedSlot={slotObj}
+                        onSlotConflict={() => {
+                          refetchAvailability();
+                        }}
+                      />
+                    );
+                  })()
                 )}
               </CardContent>
             </Card>

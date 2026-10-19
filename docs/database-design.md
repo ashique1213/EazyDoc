@@ -369,21 +369,41 @@
 | Field Name | Type | Modifiers / Constraints | Description |
 | :--- | :--- | :--- | :--- |
 | `id` | UUID | Primary Key, Default: `uuid4` | Appointment ID |
-| `booking_reference` | VARCHAR(32) | Unique, Index | Human readable code (e.g. `EZD-202610-ABCD`) |
-| `doctor_clinic` | UUID | FK -> `doctor_clinics_doctorclinic(id)`, PROTECT | Scoped Doctor & Clinic |
-| `patient` | UUID | FK -> `patients_patient(id)`, PROTECT | Booking patient |
-| `appointment_date` | DATE | Not Null, Index | Date of visit |
-| `appointment_time` | TIME | Not Null, Index | Slot start time |
-| `end_time` | TIME | Not Null | Slot end time |
-| `appointment_type` | VARCHAR(20) | Default: `'IN_PERSON'` | `IN_PERSON`, `VIDEO_CONSULT` |
-| `status` | VARCHAR(30) | Not Null, Index | `PENDING`, `CONFIRMED`, `CHECKED_IN`, `IN_CONSULTATION`, `COMPLETED`, `CANCELLED_BY_PATIENT`, `CANCELLED_BY_DOCTOR`, `CANCELLED_BY_CLINIC`, `RESCHEDULED`, `NO_SHOW` |
-| `token_number` | INTEGER | Nullable | Daily queue token at the clinic |
-| `cancellation_reason`| TEXT | Nullable | Reason for cancellation |
-| `cancelled_at` | TIMESTAMPTZ | Nullable | Timestamp of cancellation |
-| `cancelled_by` | UUID | FK -> `users_user(id)`, Nullable | User who performed cancellation |
-| `original_appointment`| UUID | FK -> self, Nullable | If rescheduled, link to previous appt |
-| `created_at` | TIMESTAMPTZ | Default: `now()` | Created timestamp |
-| `updated_at` | TIMESTAMPTZ | Auto-now | Updated timestamp |
+| `booking_reference` | VARCHAR(32) | Unique, Index | Non-sequential, unique public reference (e.g. `EZD-202610-A1B2C3`) |
+| `patient` | UUID | FK -> `accounts_user(id)`, PROTECT, Index | Patient user account |
+| `doctor_clinic` | UUID | FK -> `doctor_clinics_doctorclinic(id)`, PROTECT | Scoped doctor-clinic association |
+| `doctor` | UUID | FK -> `doctors_doctor(id)`, PROTECT, Index | Global doctor reference (for cross-clinic checks) |
+| `clinic` | UUID | FK -> `clinics_clinic(id)`, PROTECT, Index | Clinic establishment reference |
+| `start_at` | TIMESTAMPTZ | Not Null, Index | Timezone-aware appointment start time (UTC) |
+| `end_at` | TIMESTAMPTZ | Not Null, Index | Timezone-aware appointment end time (UTC) |
+| `status` | VARCHAR(30) | Not Null, Index, Default: `'CONFIRMED'` | `PENDING_CONFIRMATION`, `CONFIRMED`, `CANCELLED`, `COMPLETED`, `NO_SHOW` |
+| `consultation_fee` | DECIMAL(10,2)| Not Null, Check: `>= 0.00` | Immutable snapshot of clinic consultation fee at booking time |
+| `currency` | VARCHAR(10) | Default: `'INR'` | Platform currency code |
+| `patient_note` | TEXT | Blank, Default: `""`, Max 1000 | Optional note provided by the patient |
+| `created_at` | TIMESTAMPTZ | Default: `now()`, Index | Booking creation timestamp |
+| `updated_at` | TIMESTAMPTZ | Auto-now | Last update timestamp |
+| *Constraints* | CheckConstraint | `start_at < end_at` | Chronological start and end time |
+| *Constraints* | CheckConstraint | `consultation_fee >= 0.00` | Non-negative consultation fee |
+| *Constraints (PG)*| ExclusionConstraint | `EXCLUDE USING gist (doctor_id WITH =, tstzrange(start_at, end_at, '[)') WITH &&) WHERE (status IN ('CONFIRMED', 'PENDING_CONFIRMATION', 'COMPLETED'))` | Prevents physical double-booking for the same doctor across all clinics |
+| *Indexes* | B-Tree Index | `(doctor, start_at)` | Doctor calendar queries |
+| *Indexes* | B-Tree Index | `(clinic, start_at)` | Clinic schedule queries |
+| *Indexes* | B-Tree Index | `(patient, start_at)` | Patient history queries |
+| *Indexes* | B-Tree Index | `(status, start_at)` | Status filtering |
+| *Indexes* | B-Tree Index | `(doctor, status, start_at)` | Overlap validation query optimization |
+
+#### `appointments_idempotency`
+| Field Name | Type | Modifiers / Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | UUID | Primary Key, Default: `uuid4` | Idempotency record ID |
+| `patient` | UUID | FK -> `accounts_user(id)`, CASCADE, Index | Authenticated patient |
+| `idempotency_key` | VARCHAR(128) | Not Null, Index | Client request idempotency token |
+| `request_hash` | VARCHAR(64) | Not Null | SHA-256 fingerprint of canonical booking payload |
+| `appointment` | UUID | FK -> `appointments_appointment(id)`, CASCADE, Nullable | Successfully created appointment |
+| `response_status_code` | INTEGER | Default: 201 | Persisted response HTTP status code |
+| `response_data` | JSONB | Default: `{}` | Persisted response payload for replay |
+| `created_at` | TIMESTAMPTZ | Default: `now()`, Index | Request creation timestamp |
+| `updated_at` | TIMESTAMPTZ | Auto-now | Update timestamp |
+| *Constraints* | UniqueConstraint | `(patient, idempotency_key)` | Strictly one record per patient and idempotency key |
 
 #### `payments_payment`
 | Field Name | Type | Modifiers / Constraints | Description |
