@@ -32,3 +32,18 @@ class InvalidBookingException(APIException):
     status_code = status.HTTP_400_BAD_REQUEST
     default_detail = "Invalid appointment booking request."
     default_code = "invalid_booking"
+
+
+class CutoffExceededException(APIException):
+    """Raised when a patient attempts to cancel or reschedule after the policy cutoff (HTTP 409)."""
+    status_code = status.HTTP_409_CONFLICT
+    default_detail = "The policy cutoff for cancelling or rescheduling this appointment has passed (11:59:59 PM on the calendar day before the appointment in the clinic's timezone)."
+    default_code = "cutoff_exceeded"
+
+
+class InvalidAppointmentStateException(APIException):
+    """Raised when an operation is invalid for the appointment's current lifecycle status (HTTP 409)."""
+    status_code = status.HTTP_409_CONFLICT
+    default_detail = "This appointment cannot be cancelled or rescheduled in its current status."
+    default_code = "invalid_appointment_state"
+

@@ -9,7 +9,12 @@ from .views import (
     ClinicSubmitView,
     MyClinicsListView,
 )
-from apps.appointments.views import ClinicAppointmentsListView
+from apps.appointments.views import (
+    ClinicAppointmentCancelView,
+    ClinicAppointmentReportUnavailabilityView,
+    ClinicAppointmentRescheduleView,
+    ClinicAppointmentsListView,
+)
 
 app_name = "clinics"
 
@@ -24,4 +29,8 @@ urlpatterns = [
     path("<uuid:clinic_id>/doctors/<uuid:association_id>/settings/", ClinicDoctorSettingsUpdateView.as_view(), name="clinic-doctor-settings"),
     path("<uuid:clinic_id>/doctors/<uuid:association_id>/remove/", ClinicDoctorRemoveView.as_view(), name="clinic-doctor-remove"),
     path("<uuid:clinic_id>/appointments/", ClinicAppointmentsListView.as_view(), name="clinic-appointments"),
+    path("<uuid:clinic_id>/appointments/<uuid:appointment_id>/cancel/", ClinicAppointmentCancelView.as_view(), name="clinic-appointment-cancel"),
+    path("<uuid:clinic_id>/appointments/<uuid:appointment_id>/reschedule/", ClinicAppointmentRescheduleView.as_view(), name="clinic-appointment-reschedule"),
+    path("<uuid:clinic_id>/appointments/<uuid:appointment_id>/report-unavailability/", ClinicAppointmentReportUnavailabilityView.as_view(), name="clinic-appointment-report-unavailability"),
 ]
+

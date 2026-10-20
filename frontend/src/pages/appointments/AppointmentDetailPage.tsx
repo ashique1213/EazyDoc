@@ -17,13 +17,23 @@ import {
   ShieldAlert,
   AlertCircle,
   HelpCircle,
-  Sparkles,
+  RotateCcw,
+  Ban,
+  History,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { useAppointmentDetail } from "@/features/appointments";
+import {
+  useAppointmentDetail,
+  AppointmentCancelDialog,
+  AppointmentRescheduleModal,
+  AppointmentHistoryTimeline,
+  ReportUnavailabilityModal,
+} from "@/features/appointments";
 import type { AppointmentStatus } from "@/features/appointments";
+import { useAuthStore } from "@/features/auth";
 
 function StatusBadge({ status }: { status: AppointmentStatus }) {
   switch (status) {
@@ -55,6 +65,13 @@ function StatusBadge({ status }: { status: AppointmentStatus }) {
           <span>No Show</span>
         </Badge>
       );
+    case "RESCHEDULE_REQUIRED":
+      return (
+        <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 font-semibold gap-1.5 py-1 px-3">
+          <AlertTriangle className="h-3.5 w-3.5" />
+          <span>Requires Rescheduling</span>
+        </Badge>
+      );
     default:
       return (
         <Badge variant="outline" className="font-semibold gap-1.5 py-1 px-3">
@@ -66,8 +83,15 @@ function StatusBadge({ status }: { status: AppointmentStatus }) {
 
 export function AppointmentDetailPage() {
   const { appointmentId } = useParams<{ appointmentId: string }>();
-  const { data: appointment, isLoading, isError, error } = useAppointmentDetail(appointmentId);
+  const { data: appointment, isLoading, isError, error, refetch } = useAppointmentDetail(appointmentId);
+  const { user } = useAuthStore();
   const [copied, setCopied] = useState(false);
+
+  // Modals state
+  const [isCancelOpen, setIsCancelOpen] = useState(false);
+  const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
+  const [isUnavailOpen, setIsUnavailOpen] = useState(false);
+  const [showHistory, setShowHistory] = useState(true);
 
   const handleCopyReference = () => {
     if (appointment?.booking_reference) {
@@ -134,11 +158,19 @@ export function AppointmentDetailPage() {
     hour12: true,
   })}`;
 
+  const isPatient = user?.role === "PATIENT";
+  const isDoctor = user?.role === "DOCTOR";
+  const isClinicStaff = user?.role === "CLINIC_OWNER" || user?.role === "STAFF";
+
+  const isEligibleToCancel = appointment.is_cancellable || appointment.reschedule_required;
+  const isEligibleToReschedule = appointment.is_reschedulable || appointment.reschedule_required;
+  const canModify = appointment.status === "CONFIRMED" || appointment.status === "PENDING_CONFIRMATION" || appointment.status === "RESCHEDULE_REQUIRED";
+
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      {/* Success Top Banner */}
+    <div className="container mx-auto max-w-3xl px-4 py-10 sm:px-6 space-y-6">
+      {/* Top Banner based on status */}
       {appointment.status === "CONFIRMED" && (
-        <div className="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-50/60 p-6 text-center dark:bg-emerald-950/20">
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-50/60 p-6 text-center dark:bg-emerald-950/20">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
             <CheckCircle2 className="h-8 w-8" />
           </div>
@@ -148,6 +180,50 @@ export function AppointmentDetailPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Your consultation has been reserved. Please find your visit details below.
           </p>
+        </div>
+      )}
+
+      {appointment.status === "RESCHEDULE_REQUIRED" && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-50/70 p-6 text-center dark:bg-amber-950/20 space-y-2">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+            <AlertTriangle className="h-8 w-8" />
+          </div>
+          <h2 className="text-xl font-black text-amber-900 dark:text-amber-200">
+            Doctor Unavailability Reported — Rescheduling Required
+          </h2>
+          <p className="text-xs text-amber-800/80 dark:text-amber-300/80 max-w-md mx-auto">
+            {appointment.cancellation_reason || "The doctor or clinic reported an unexpected schedule conflict."}
+          </p>
+          <div className="pt-2">
+            <Button
+              onClick={() => setIsRescheduleOpen(true)}
+              className="gap-2 font-bold bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              <RotateCcw className="h-4 w-4" />
+              <span>Choose Replacement Slot Now</span>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {appointment.status === "CANCELLED" && (
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-6 text-center space-y-2">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-destructive/15 text-destructive">
+            <AlertCircle className="h-8 w-8" />
+          </div>
+          <h2 className="text-xl font-black text-destructive">
+            Appointment Cancelled
+          </h2>
+          {appointment.cancellation_reason && (
+            <p className="text-xs text-muted-foreground max-w-md mx-auto">
+              Reason: "{appointment.cancellation_reason}"
+            </p>
+          )}
+          {appointment.cancelled_at && (
+            <p className="text-[11px] text-muted-foreground font-mono">
+              Cancelled on: {new Date(appointment.cancelled_at).toLocaleString("en-IN")}
+            </p>
+          )}
         </div>
       )}
 
@@ -178,7 +254,7 @@ export function AppointmentDetailPage() {
               </div>
             </div>
 
-            <div>
+            <div className="flex items-center gap-2">
               <StatusBadge status={appointment.status} />
             </div>
           </div>
@@ -255,7 +331,7 @@ export function AppointmentDetailPage() {
             </div>
           </div>
 
-          {/* Commercial Snapshot */}
+          {/* Fee Snapshot */}
           <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-50/30 p-4 dark:bg-emerald-950/10">
             <div className="space-y-0.5">
               <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
@@ -272,6 +348,108 @@ export function AppointmentDetailPage() {
             </div>
           </div>
 
+          {/* Policy & Cutoff Card */}
+          {canModify && (
+            <div className="rounded-xl border border-border bg-muted/10 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Cancellation & Rescheduling Eligibility
+                </span>
+                <Badge variant="outline" className="text-[10px]">
+                  TZ: {appointment.clinic.timezone || "Asia/Kolkata"}
+                </Badge>
+              </div>
+
+              <div className="text-xs text-muted-foreground space-y-1">
+                {appointment.reschedule_required ? (
+                  <p className="text-amber-700 dark:text-amber-300 font-semibold">
+                    Authorized Exception: You may reschedule or cancel freely without cutoff limits.
+                  </p>
+                ) : isEligibleToCancel ? (
+                  <p>
+                    Eligible for cancellation & rescheduling until{" "}
+                    <strong>11:59:59 PM</strong> on the day before the appointment in the clinic's local timezone.
+                  </p>
+                ) : (
+                  <p className="text-destructive font-semibold">
+                    Cutoff has passed for patient self-service modifications. Changes require authorized staff resolution.
+                  </p>
+                )}
+              </div>
+
+              {/* Action Buttons for Patient */}
+              {isPatient && (
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-border/40">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsRescheduleOpen(true)}
+                    disabled={!isEligibleToReschedule}
+                    className="gap-1.5 text-xs font-bold"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span>Reschedule Visit</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsCancelOpen(true)}
+                    disabled={!isEligibleToCancel}
+                    className="gap-1.5 text-xs text-destructive hover:bg-destructive/10 border-destructive/30"
+                  >
+                    <Ban className="h-3.5 w-3.5" />
+                    <span>Cancel Appointment</span>
+                  </Button>
+                </div>
+              )}
+
+              {/* Action Buttons for Doctor or Clinic Staff */}
+              {(isDoctor || isClinicStaff) && (
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-border/40">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsUnavailOpen(true)}
+                    className="gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/10"
+                  >
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    <span>Report Doctor / Clinic Unavailability</span>
+                  </Button>
+
+                  {isClinicStaff && (
+                    <>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsRescheduleOpen(true)}
+                        className="gap-1.5 text-xs font-bold"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        <span>Staff Override Reschedule</span>
+                      </Button>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsCancelOpen(true)}
+                        className="gap-1.5 text-xs text-destructive hover:bg-destructive/10"
+                      >
+                        <Ban className="h-3.5 w-3.5" />
+                        <span>Staff Override Cancel</span>
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Patient Note */}
           {appointment.patient_note && (
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-1">
@@ -282,23 +460,32 @@ export function AppointmentDetailPage() {
             </div>
           )}
 
-          {/* Next Steps Advisory */}
-          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
-              <Sparkles className="h-4 w-4" />
-              <span>Important Instructions for Your Visit</span>
+          {/* Audit History Timeline */}
+          <div className="pt-2">
+            <div className="flex items-center justify-between pb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Lifecycle & Audit Trail
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowHistory(!showHistory)}
+                className="text-xs h-7 gap-1"
+              >
+                <History className="h-3.5 w-3.5" />
+                <span>{showHistory ? "Hide History" : "Show History"}</span>
+              </Button>
             </div>
-            <ul className="list-disc list-inside space-y-1 text-xs text-muted-foreground">
-              <li>Please arrive at {appointment.clinic.name} at least 15 minutes prior to {timeFormatted.split("–")[0].trim()}.</li>
-              <li>Carry a valid photo ID and any previous medical prescriptions or lab reports.</li>
-              <li>Present your booking reference <strong className="text-foreground">{appointment.booking_reference}</strong> at the clinic reception desk.</li>
-            </ul>
+
+            {showHistory && (
+              <AppointmentHistoryTimeline appointmentId={appointment.id} />
+            )}
           </div>
         </CardContent>
       </Card>
 
       {/* Action Footer */}
-      <div className="mt-8 flex flex-col-reverse sm:flex-row items-center justify-between gap-4">
+      <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-4 pt-2">
         <Button
           type="button"
           variant="outline"
@@ -325,6 +512,31 @@ export function AppointmentDetailPage() {
           </Link>
         </div>
       </div>
+
+      {/* Cancellation Dialog */}
+      <AppointmentCancelDialog
+        isOpen={isCancelOpen}
+        onClose={() => setIsCancelOpen(false)}
+        appointment={appointment}
+        onSuccess={() => refetch()}
+      />
+
+      {/* Reschedule Modal */}
+      <AppointmentRescheduleModal
+        isOpen={isRescheduleOpen}
+        onClose={() => setIsRescheduleOpen(false)}
+        appointment={appointment}
+        onSuccess={() => refetch()}
+      />
+
+      {/* Doctor / Clinic Unavailability Modal */}
+      <ReportUnavailabilityModal
+        isOpen={isUnavailOpen}
+        onClose={() => setIsUnavailOpen(false)}
+        appointment={appointment}
+        clinicScope={isClinicStaff}
+        onSuccess={() => refetch()}
+      />
     </div>
   );
 }

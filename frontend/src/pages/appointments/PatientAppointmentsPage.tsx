@@ -47,6 +47,13 @@ function StatusBadge({ status }: { status: AppointmentStatus }) {
           <span>No Show</span>
         </Badge>
       );
+    case "RESCHEDULE_REQUIRED":
+      return (
+        <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 font-semibold gap-1 py-0.5 px-2.5 text-xs">
+          <AlertCircle className="h-3 w-3" />
+          <span>Requires Rescheduling</span>
+        </Badge>
+      );
     default:
       return (
         <Badge variant="outline" className="text-xs">

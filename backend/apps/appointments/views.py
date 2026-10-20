@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils import timezone
 
+from apps.accounts.models import UserRole
 from apps.accounts.permissions import (
     IsAuthenticatedUser,
     IsClinicStaffOrOwner,
@@ -18,10 +19,19 @@ from .models import Appointment, AppointmentStatus
 from .permissions import CanAccessAppointment
 from .serializers import (
     AppointmentBookingRequestSerializer,
+    AppointmentCancelRequestSerializer,
     AppointmentDetailSerializer,
+    AppointmentHistorySerializer,
     AppointmentListSerializer,
+    AppointmentReportUnavailabilityRequestSerializer,
+    AppointmentRescheduleRequestSerializer,
 )
-from .services import book_appointment
+from .services import (
+    book_appointment,
+    cancel_appointment,
+    reschedule_appointment,
+    report_doctor_unavailability_for_appointment,
+)
 
 
 class AppointmentCreateView(APIView):
@@ -240,3 +250,374 @@ class DoctorAppointmentsListView(generics.ListAPIView):
                 pass
 
         return qs
+
+
+class AppointmentCancelView(APIView):
+    """
+    POST /api/v1/appointments/{appointment_id}/cancel/
+    Allows an authorized patient (or authorized clinic owner/staff/doctor/admin) to cancel an eligible appointment.
+    Enforces clinic timezone cutoff rules for patient actions.
+    """
+    permission_classes = [IsAuthenticatedUser]
+
+    @extend_schema(
+        summary="Cancel Appointment",
+        description="Cancels an eligible appointment with clinic timezone cutoff enforcement.",
+        request=AppointmentCancelRequestSerializer,
+        responses={
+            200: AppointmentDetailSerializer,
+            400: "Bad Request - invalid request",
+            403: "Permission Denied - cannot cancel another patient's appointment",
+            404: "Not Found",
+            409: "Conflict - cutoff exceeded or invalid appointment state",
+        },
+    )
+    def post(self, request, appointment_id):
+        appointment = (
+            Appointment.objects.select_related("clinic", "doctor", "patient")
+            .filter(id=appointment_id)
+            .first()
+        )
+        if not appointment:
+            raise NotFound("Appointment not found.")
+
+        user = request.user
+        if user.role == UserRole.PATIENT:
+            if appointment.patient_id != user.id:
+                raise PermissionDenied("You can only cancel your own appointments.")
+        elif user.role == UserRole.CLINIC_OWNER:
+            if appointment.clinic.owner_id != user.id:
+                raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
+        elif user.role == UserRole.STAFF:
+            if not hasattr(user, "staff_profile") or user.staff_profile.clinic_id != appointment.clinic_id:
+                raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
+        elif user.role == UserRole.DOCTOR:
+            if appointment.doctor.user_id != user.id:
+                raise PermissionDenied("You can only manage appointments assigned to your doctor profile.")
+        elif user.role != UserRole.SUPER_ADMIN:
+            raise PermissionDenied("You do not have permission to cancel this appointment.")
+
+        serializer = AppointmentCancelRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        reason = serializer.validated_data.get("reason", "")
+
+        is_exception = (user.role != UserRole.PATIENT)
+        cancelled_appt = cancel_appointment(
+            appointment=appointment,
+            cancelled_by=user,
+            reason=reason,
+            is_exception=is_exception,
+            actor_role=user.role,
+        )
+        return Response(AppointmentDetailSerializer(cancelled_appt).data, status=status.HTTP_200_OK)
+
+
+class AppointmentRescheduleView(APIView):
+    """
+    POST /api/v1/appointments/{appointment_id}/reschedule/
+    Allows an authorized patient (or authorized staff) to reschedule an eligible appointment to a new slot.
+    Doctor, clinic, fee, and patient identity cannot be changed.
+    """
+    permission_classes = [IsAuthenticatedUser]
+
+    @extend_schema(
+        summary="Reschedule Appointment",
+        description="Atomically reschedules an appointment to a destination slot for the same doctor and clinic.",
+        request=AppointmentRescheduleRequestSerializer,
+        responses={
+            200: AppointmentDetailSerializer,
+            400: "Bad Request - invalid parameters or past date",
+            403: "Permission Denied",
+            404: "Not Found",
+            409: "Conflict - slot unavailable, travel buffer conflict, or cutoff exceeded",
+        },
+    )
+    def post(self, request, appointment_id):
+        appointment = (
+            Appointment.objects.select_related("clinic", "doctor", "doctor_clinic", "patient")
+            .filter(id=appointment_id)
+            .first()
+        )
+        if not appointment:
+            raise NotFound("Appointment not found.")
+
+        user = request.user
+        if user.role == UserRole.PATIENT:
+            if appointment.patient_id != user.id:
+                raise PermissionDenied("You can only reschedule your own appointments.")
+        elif user.role == UserRole.CLINIC_OWNER:
+            if appointment.clinic.owner_id != user.id:
+                raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
+        elif user.role == UserRole.STAFF:
+            if not hasattr(user, "staff_profile") or user.staff_profile.clinic_id != appointment.clinic_id:
+                raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
+        elif user.role != UserRole.SUPER_ADMIN:
+            raise PermissionDenied("You do not have permission to reschedule this appointment.")
+
+        serializer = AppointmentRescheduleRequestSerializer(
+            data=request.data,
+            context={"appointment": appointment},
+        )
+        serializer.is_valid(raise_exception=True)
+        new_start_at = serializer.validated_data["start_at"]
+        reason = serializer.validated_data.get("reason", "")
+
+        is_exception = (user.role != UserRole.PATIENT)
+        rescheduled_appt = reschedule_appointment(
+            appointment=appointment,
+            rescheduled_by=user,
+            new_start_at=new_start_at,
+            reason=reason,
+            is_exception=is_exception,
+            actor_role=user.role,
+        )
+        return Response(AppointmentDetailSerializer(rescheduled_appt).data, status=status.HTTP_200_OK)
+
+
+class AppointmentHistoryListView(APIView):
+    """
+    GET /api/v1/appointments/{appointment_id}/history/
+    Returns the chronological audit trail for the specified appointment.
+    Strictly enforces tenant and ownership isolation.
+    """
+    permission_classes = [IsAuthenticatedUser]
+
+    @extend_schema(
+        summary="Get Appointment History",
+        description="Retrieves the append-only audit trail for an appointment.",
+        responses={
+            200: AppointmentHistorySerializer(many=True),
+            403: "Permission Denied - cannot access another user's appointment history",
+            404: "Not Found",
+        },
+    )
+    def get(self, request, appointment_id):
+        appointment = (
+            Appointment.objects.select_related("clinic", "doctor", "patient")
+            .filter(id=appointment_id)
+            .first()
+        )
+        if not appointment:
+            raise NotFound("Appointment not found.")
+
+        user = request.user
+        if user.role == UserRole.PATIENT:
+            if appointment.patient_id != user.id:
+                raise PermissionDenied("You cannot view the history of an appointment that does not belong to you.")
+        elif user.role == UserRole.CLINIC_OWNER:
+            if appointment.clinic.owner_id != user.id:
+                raise PermissionDenied("You do not have permission to view appointments for this clinic.")
+        elif user.role == UserRole.STAFF:
+            if not hasattr(user, "staff_profile") or user.staff_profile.clinic_id != appointment.clinic_id:
+                raise PermissionDenied("You do not have permission to view appointments for this clinic.")
+        elif user.role == UserRole.DOCTOR:
+            if appointment.doctor.user_id != user.id:
+                raise PermissionDenied("You can only view history for appointments assigned to your doctor profile.")
+        elif user.role != UserRole.SUPER_ADMIN:
+            raise PermissionDenied("You do not have permission to view this appointment history.")
+
+        history_qs = appointment.history.select_related("actor").order_by("-created_at")
+        serializer = AppointmentHistorySerializer(history_qs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ClinicAppointmentCancelView(APIView):
+    """
+    POST /api/v1/clinics/{clinic_id}/appointments/{appointment_id}/cancel/
+    Authorized clinic management endpoint to cancel an appointment (authorized exception).
+    """
+    permission_classes = [IsAuthenticatedUser, IsClinicStaffOrOwner]
+
+    @extend_schema(
+        summary="Clinic Cancel Appointment",
+        description="Cancels an appointment within the clinic's tenant scope with documented reason.",
+        request=AppointmentCancelRequestSerializer,
+        responses={
+            200: AppointmentDetailSerializer,
+            403: "Permission Denied",
+            404: "Not Found",
+        },
+    )
+    def post(self, request, clinic_id, appointment_id):
+        clinic = Clinic.objects.filter(id=clinic_id).first()
+        if not clinic:
+            raise NotFound("Clinic not found.")
+
+        user = request.user
+        if user.role == UserRole.CLINIC_OWNER and clinic.owner_id != user.id:
+            raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
+        elif user.role == UserRole.STAFF and (not hasattr(user, "staff_profile") or user.staff_profile.clinic_id != clinic.id):
+            raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
+
+        appointment = (
+            Appointment.objects.select_related("clinic", "doctor", "patient")
+            .filter(id=appointment_id)
+            .first()
+        )
+        if not appointment or str(appointment.clinic_id) != str(clinic.id):
+            raise NotFound("Appointment not found for this clinic.")
+
+        serializer = AppointmentCancelRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        reason = serializer.validated_data.get("reason", "")
+
+        cancelled_appt = cancel_appointment(
+            appointment=appointment,
+            cancelled_by=user,
+            reason=reason,
+            is_exception=True,
+            actor_role=user.role,
+        )
+        return Response(AppointmentDetailSerializer(cancelled_appt).data, status=status.HTTP_200_OK)
+
+
+class ClinicAppointmentRescheduleView(APIView):
+    """
+    POST /api/v1/clinics/{clinic_id}/appointments/{appointment_id}/reschedule/
+    Authorized clinic management endpoint to reschedule an appointment (authorized exception).
+    """
+    permission_classes = [IsAuthenticatedUser, IsClinicStaffOrOwner]
+
+    @extend_schema(
+        summary="Clinic Reschedule Appointment",
+        description="Reschedules an appointment within the clinic's tenant scope.",
+        request=AppointmentRescheduleRequestSerializer,
+        responses={
+            200: AppointmentDetailSerializer,
+            403: "Permission Denied",
+            404: "Not Found",
+            409: "Conflict",
+        },
+    )
+    def post(self, request, clinic_id, appointment_id):
+        clinic = Clinic.objects.filter(id=clinic_id).first()
+        if not clinic:
+            raise NotFound("Clinic not found.")
+
+        user = request.user
+        if user.role == UserRole.CLINIC_OWNER and clinic.owner_id != user.id:
+            raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
+        elif user.role == UserRole.STAFF and (not hasattr(user, "staff_profile") or user.staff_profile.clinic_id != clinic.id):
+            raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
+
+        appointment = (
+            Appointment.objects.select_related("clinic", "doctor", "doctor_clinic", "patient")
+            .filter(id=appointment_id)
+            .first()
+        )
+        if not appointment or str(appointment.clinic_id) != str(clinic.id):
+            raise NotFound("Appointment not found for this clinic.")
+
+        serializer = AppointmentRescheduleRequestSerializer(
+            data=request.data,
+            context={"appointment": appointment},
+        )
+        serializer.is_valid(raise_exception=True)
+        new_start_at = serializer.validated_data["start_at"]
+        reason = serializer.validated_data.get("reason", "")
+
+        rescheduled_appt = reschedule_appointment(
+            appointment=appointment,
+            rescheduled_by=user,
+            new_start_at=new_start_at,
+            reason=reason,
+            is_exception=True,
+            actor_role=user.role,
+        )
+        return Response(AppointmentDetailSerializer(rescheduled_appt).data, status=status.HTTP_200_OK)
+
+
+class ClinicAppointmentReportUnavailabilityView(APIView):
+    """
+    POST /api/v1/clinics/{clinic_id}/appointments/{appointment_id}/report-unavailability/
+    Allows clinic staff or owner to report doctor or clinic unavailability for an appointment.
+    """
+    permission_classes = [IsAuthenticatedUser, IsClinicStaffOrOwner]
+
+    @extend_schema(
+        summary="Clinic Report Unavailability",
+        description="Reports doctor/clinic unavailability for an appointment, triggering resolution workflow.",
+        request=AppointmentReportUnavailabilityRequestSerializer,
+        responses={
+            200: AppointmentDetailSerializer,
+            403: "Permission Denied",
+            404: "Not Found",
+        },
+    )
+    def post(self, request, clinic_id, appointment_id):
+        clinic = Clinic.objects.filter(id=clinic_id).first()
+        if not clinic:
+            raise NotFound("Clinic not found.")
+
+        user = request.user
+        if user.role == UserRole.CLINIC_OWNER and clinic.owner_id != user.id:
+            raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
+        elif user.role == UserRole.STAFF and (not hasattr(user, "staff_profile") or user.staff_profile.clinic_id != clinic.id):
+            raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
+
+        appointment = (
+            Appointment.objects.select_related("clinic", "doctor", "patient")
+            .filter(id=appointment_id)
+            .first()
+        )
+        if not appointment or str(appointment.clinic_id) != str(clinic.id):
+            raise NotFound("Appointment not found for this clinic.")
+
+        serializer = AppointmentReportUnavailabilityRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        reason = serializer.validated_data["reason"]
+        action = serializer.validated_data.get("action", "RESCHEDULE_REQUIRED")
+
+        updated_appt = report_doctor_unavailability_for_appointment(
+            appointment=appointment,
+            reported_by=user,
+            reason=reason,
+            action=action,
+        )
+        return Response(AppointmentDetailSerializer(updated_appt).data, status=status.HTTP_200_OK)
+
+
+class DoctorAppointmentReportUnavailabilityView(APIView):
+    """
+    POST /api/v1/doctors/me/appointments/{appointment_id}/report-unavailability/
+    Allows an authenticated doctor to report unavailability for an appointment,
+    marking it as requiring resolution and granting the patient exception rescheduling rights.
+    """
+    permission_classes = [IsAuthenticatedUser, IsDoctor]
+
+    @extend_schema(
+        summary="Doctor Report Unavailability",
+        description="Reports doctor unavailability for a specific appointment.",
+        request=AppointmentReportUnavailabilityRequestSerializer,
+        responses={
+            200: AppointmentDetailSerializer,
+            403: "Permission Denied",
+            404: "Not Found",
+        },
+    )
+    def post(self, request, appointment_id):
+        doctor = Doctor.objects.filter(user=request.user).first()
+        if not doctor:
+            raise NotFound("Doctor profile not found for authenticated user.")
+
+        appointment = (
+            Appointment.objects.select_related("clinic", "doctor", "patient")
+            .filter(id=appointment_id)
+            .first()
+        )
+        if not appointment or str(appointment.doctor_id) != str(doctor.id):
+            raise NotFound("Appointment not found or not assigned to your doctor profile.")
+
+        serializer = AppointmentReportUnavailabilityRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        reason = serializer.validated_data["reason"]
+        action = serializer.validated_data.get("action", "RESCHEDULE_REQUIRED")
+
+        updated_appt = report_doctor_unavailability_for_appointment(
+            appointment=appointment,
+            reported_by=request.user,
+            reason=reason,
+            action=action,
+        )
+        return Response(AppointmentDetailSerializer(updated_appt).data, status=status.HTTP_200_OK)
+

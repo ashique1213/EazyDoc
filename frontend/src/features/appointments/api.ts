@@ -2,9 +2,13 @@ import { apiClient } from "@/services/api";
 import type { PaginatedResponse } from "@/features/discovery/types";
 import type {
   Appointment,
+  AppointmentHistoryItem,
   AppointmentListItem,
   BookAppointmentPayload,
+  CancelAppointmentPayload,
   MyAppointmentsParams,
+  ReportUnavailabilityPayload,
+  RescheduleAppointmentPayload,
 } from "./types";
 
 export const appointmentsApi = {
@@ -44,6 +48,84 @@ export const appointmentsApi = {
     return response.data;
   },
 
+  cancelAppointment: async (
+    appointmentId: string,
+    payload?: CancelAppointmentPayload
+  ): Promise<Appointment> => {
+    const response = await apiClient.post<Appointment>(
+      `/appointments/${appointmentId}/cancel/`,
+      payload || {}
+    );
+    return response.data;
+  },
+
+  rescheduleAppointment: async (
+    appointmentId: string,
+    payload: RescheduleAppointmentPayload
+  ): Promise<Appointment> => {
+    const response = await apiClient.post<Appointment>(
+      `/appointments/${appointmentId}/reschedule/`,
+      payload
+    );
+    return response.data;
+  },
+
+  getAppointmentHistory: async (
+    appointmentId: string
+  ): Promise<AppointmentHistoryItem[]> => {
+    const response = await apiClient.get<AppointmentHistoryItem[]>(
+      `/appointments/${appointmentId}/history/`
+    );
+    return response.data;
+  },
+
+  clinicCancelAppointment: async (
+    clinicId: string,
+    appointmentId: string,
+    payload?: CancelAppointmentPayload
+  ): Promise<Appointment> => {
+    const response = await apiClient.post<Appointment>(
+      `/clinics/${clinicId}/appointments/${appointmentId}/cancel/`,
+      payload || {}
+    );
+    return response.data;
+  },
+
+  clinicRescheduleAppointment: async (
+    clinicId: string,
+    appointmentId: string,
+    payload: RescheduleAppointmentPayload
+  ): Promise<Appointment> => {
+    const response = await apiClient.post<Appointment>(
+      `/clinics/${clinicId}/appointments/${appointmentId}/reschedule/`,
+      payload
+    );
+    return response.data;
+  },
+
+  clinicReportUnavailability: async (
+    clinicId: string,
+    appointmentId: string,
+    payload: ReportUnavailabilityPayload
+  ): Promise<Appointment> => {
+    const response = await apiClient.post<Appointment>(
+      `/clinics/${clinicId}/appointments/${appointmentId}/report-unavailability/`,
+      payload
+    );
+    return response.data;
+  },
+
+  doctorReportUnavailability: async (
+    appointmentId: string,
+    payload: ReportUnavailabilityPayload
+  ): Promise<Appointment> => {
+    const response = await apiClient.post<Appointment>(
+      `/doctors/me/appointments/${appointmentId}/report-unavailability/`,
+      payload
+    );
+    return response.data;
+  },
+
   getClinicAppointments: async (
     clinicId: string,
     params?: { doctor_id?: string; status?: string; filter?: string; page?: number }
@@ -65,3 +147,4 @@ export const appointmentsApi = {
     return response.data;
   },
 };
+

@@ -358,3 +358,103 @@
 5. **Idempotency Guarantee:** Client-submitted `Idempotency-Key` headers paired with request payload hashes ensure network retries and duplicate button clicks replay original responses without creating duplicate appointments.
 6. **Object-Level Security:** Patients can only view their own bookings; clinic owners only access appointments at clinics they own; doctors only access appointments associated with their doctor profile.
 
+---
+
+## 11. Appointment Cancellation, Rescheduling & Exception Lifecycle (Day 10)
+
+### 11.1. Cancellation Policy & Midnight Cutoff Calculation
+- **Business Rule:** Patients may cancel or reschedule an eligible appointment until **11:59:59.999999 PM** on the calendar day preceding the appointment, evaluated in the **clinic's configured timezone** (e.g. `Asia/Kolkata`).
+- **Strict Midnight Cutoff:** At `00:00:00` on the appointment date in the clinic timezone, patient-initiated cancellation and rescheduling are locked.
+- **Timezone-Aware Calculation:**
+  ```python
+  clinic_tz = ZoneInfo(appointment.clinic.timezone or "Asia/Kolkata")
+  appointment_date_clinic = appointment.start_at.astimezone(clinic_tz).date()
+  cutoff_date = appointment_date_clinic - timedelta(days=1)
+  cutoff_datetime_clinic = datetime.combine(cutoff_date, time(23, 59, 59, 999999), tzinfo=clinic_tz)
+  ```
+- Server or client/browser clocks cannot bypass this policy.
+
+### 11.2. State Transition Matrix
+
+| From Status | Action / Event | Target Status | Permitted Actors | Notes |
+|---|---|---|---|---|
+| `CONFIRMED` | Patient / Staff / Doctor Cancel | `CANCELLED` | Patient (before cutoff), Clinic Staff/Owner, Doctor | Slot immediately returned to availability pool |
+| `CONFIRMED` | Patient / Staff Reschedule | `CONFIRMED` | Patient (before cutoff), Clinic Staff/Owner | Original slot released, new slot booked atomically |
+| `CONFIRMED` | Doctor / Clinic Reports Unavailability | `RESCHEDULE_REQUIRED` | Doctor, Clinic Staff/Owner | Normal cutoff waived for patient resolution |
+| `RESCHEDULE_REQUIRED` | Patient Reschedules (Exception) | `CONFIRMED` | Patient | Allowed even past normal cutoff |
+| `RESCHEDULE_REQUIRED` | Patient / Staff Cancels (Exception) | `CANCELLED` | Patient, Clinic Staff/Owner | Allowed even past normal cutoff |
+| `CANCELLED` | Any action | — | — | Terminal state; invalid transition |
+| `COMPLETED` | Any action | — | — | Terminal state; cannot cancel or reschedule |
+| `NO_SHOW` | Any action | — | — | Terminal state; cannot cancel or reschedule |
+
+### 11.3. Patient Rescheduling Sequence Diagram
+
+```
+[Patient]                        [Backend REST API]                   [PostgreSQL Database]
+   │                                     │                                      │
+   │── 1. POST /appointments/{id}/──────►│                                      │
+   │      reschedule/ (start_at, reason) │                                      │
+   │                                     │── 2. BEGIN TRANSACTION ─────────────►│
+   │                                     │   SELECT * FROM appointments_appt    │
+   │                                     │   WHERE id = $id FOR UPDATE; ───────►│ (Row-level Appt Lock)
+   │                                     │   SELECT * FROM doctors_doctor       │
+   │                                     │   WHERE id = $doc_id FOR UPDATE; ───►│ (Row-level Doctor Lock)
+   │                                     │                                      │
+   │                                     │── 3. Validate Status & Cutoff ───────┤
+   │                                     │   - Status in (CONFIRMED, RESCH_REQ) │
+   │                                     │   - If CONFIRMED: now <= cutoff_dt   │
+   │                                     │   - If RESCH_REQ: bypass cutoff      │
+   │                                     │                                      │
+   │                                     │── 4. Validate Slot in Doctor Shift ──┤
+   │                                     │   Generate available slots for date  │
+   │                                     │                                      │
+   │                                     │── 5. Check Overlaps & Buffers ───────┤
+   │                                     │   Exclude current appointment ID     │
+   │                                     │   Enforce cross-clinic 30m travel    │
+   │                                     │                                      │
+   │                                     │── 6. UPDATE Appointment ────────────►│
+   │                                     │   (start_at, end_at, status='CONF')  │
+   │                                     │   reschedule_required = False        │
+   │                                     │                                      │
+   │                                     │── 7. INSERT AppointmentHistory ─────►│
+   │                                     │   (Event: RESCHEDULED, old & new     │
+   │                                     │    times, actor, reason, exception)  │
+   │                                     │                                      │
+   │                                     │── 8. COMMIT TRANSACTION ────────────►│
+   │                                     │── 9. transaction.on_commit() ────────│
+   │                                     │      Dispatch background event hook  │
+   │◄── 10. 200 OK (Updated Details) ────┤                                      │
+```
+
+### 11.4. Append-Only Audit History Schema (`AppointmentHistory`)
+
+Every lifecycle event creates an immutable audit record:
+- `id`: UUID primary key.
+- `appointment`: Foreign key to target `Appointment`.
+- `event_type`: `CREATED`, `PATIENT_CANCELLED`, `CLINIC_CANCELLED`, `DOCTOR_UNAVAILABLE`, `RESCHEDULED`, `ADMIN_OVERRIDE`, `COMPLETED`, `NO_SHOW`.
+- `previous_status` & `new_status`.
+- `previous_start_at`, `previous_end_at`, `new_start_at`, `new_end_at`.
+- `actor`: Foreign key to `User` (if authenticated).
+- `actor_role`: Snapshot of actor role (`PATIENT`, `CLINIC_OWNER`, `CLINIC_STAFF`, `DOCTOR`, `SUPER_ADMIN`, `SYSTEM`).
+- `reason`: User or staff-supplied cancellation/rescheduling explanation.
+- `is_cutoff_exception`: Boolean indicating if an authorized override bypassed normal cutoff.
+- `created_at`: Immutable timestamp.
+
+### 11.5. API Endpoints
+
+| Method | Endpoint | Description | Permitted Roles |
+|---|---|---|---|
+| `POST` | `/api/v1/appointments/{id}/cancel/` | Patient-initiated cancellation (enforces clinic cutoff) | Patient (Owner) |
+| `POST` | `/api/v1/appointments/{id}/reschedule/` | Patient-initiated rescheduling (enforces clinic cutoff) | Patient (Owner) |
+| `GET` | `/api/v1/appointments/{id}/history/` | View append-only audit trail for appointment | Patient, Doctor, Clinic Staff/Owner |
+| `POST` | `/api/v1/clinics/{clinic_id}/appointments/{id}/cancel/` | Authorized clinic cancellation | Clinic Owner, Authorized Staff |
+| `POST` | `/api/v1/clinics/{clinic_id}/appointments/{id}/reschedule/` | Authorized clinic rescheduling | Clinic Owner, Authorized Staff |
+| `POST` | `/api/v1/clinics/{clinic_id}/appointments/{id}/report-unavailability/` | Mark appointment as requiring rescheduling due to clinic/doctor unavailability | Clinic Owner, Authorized Staff |
+| `POST` | `/api/v1/doctors/me/appointments/{id}/report-unavailability/` | Doctor reports unavailability for affected appointment | Doctor (Assigned to appt) |
+
+### 11.6. Notification and Async Event Pipeline
+- Events are dispatched via `transaction.on_commit(lambda: dispatch_appointment_event(...))` to guarantee zero ghost events on transaction rollback.
+- Events dispatched: `appointment.cancelled`, `appointment.rescheduled`, `appointment.reschedule_required`.
+- Payment refund hook: Future payment integration can listen to `appointment.cancelled` to initiate Razorpay refund without blocking appointment cancellation transactions.
+
+

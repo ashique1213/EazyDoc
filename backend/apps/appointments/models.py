@@ -13,6 +13,7 @@ class AppointmentStatus(models.TextChoices):
     CANCELLED = "CANCELLED", _("Cancelled")
     COMPLETED = "COMPLETED", _("Completed")
     NO_SHOW = "NO_SHOW", _("No Show")
+    RESCHEDULE_REQUIRED = "RESCHEDULE_REQUIRED", _("Requires Rescheduling")
 
 
 class Appointment(models.Model):
@@ -95,6 +96,32 @@ class Appointment(models.Model):
         max_length=1000,
         help_text=_("Optional note or reason for consultation provided by the patient."),
     )
+    cancellation_reason = models.TextField(
+        _("cancellation reason"),
+        blank=True,
+        default="",
+        max_length=1000,
+        help_text=_("Reason provided when appointment is cancelled or marked for rescheduling."),
+    )
+    cancelled_at = models.DateTimeField(
+        _("cancelled at"),
+        null=True,
+        blank=True,
+    )
+    cancelled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cancelled_appointments",
+        verbose_name=_("cancelled by"),
+    )
+    reschedule_required = models.BooleanField(
+        _("reschedule required"),
+        default=False,
+        db_index=True,
+        help_text=_("Flag indicating that doctor/clinic unavailability requires this appointment to be rescheduled or cancelled."),
+    )
     created_at = models.DateTimeField(_("created at"), auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(_("updated at"), auto_now=True)
 
@@ -119,6 +146,7 @@ class Appointment(models.Model):
             models.Index(fields=["patient", "start_at"]),
             models.Index(fields=["status", "start_at"]),
             models.Index(fields=["doctor", "status", "start_at"]),
+            models.Index(fields=["reschedule_required", "start_at"]),
         ]
 
     def __str__(self) -> str:
@@ -143,6 +171,114 @@ class Appointment(models.Model):
             AppointmentStatus.PENDING_CONFIRMATION,
             AppointmentStatus.COMPLETED,
         )
+
+
+class AppointmentHistoryEventType(models.TextChoices):
+    CREATED = "CREATED", _("Appointment Created")
+    PATIENT_CANCELLED = "PATIENT_CANCELLED", _("Patient Cancelled")
+    CLINIC_CANCELLED = "CLINIC_CANCELLED", _("Clinic Cancelled")
+    DOCTOR_UNAVAILABLE = "DOCTOR_UNAVAILABLE", _("Doctor Unavailability Reported")
+    RESCHEDULED = "RESCHEDULED", _("Appointment Rescheduled")
+    ADMIN_OVERRIDE = "ADMIN_OVERRIDE", _("Administrative Override")
+    COMPLETED = "COMPLETED", _("Completed")
+    NO_SHOW = "NO_SHOW", _("No Show")
+
+
+class AppointmentHistory(models.Model):
+    """
+    Append-only audit trail recording the full lifecycle and state changes of an appointment.
+    Captures actor, reason, timestamps, previous and updated slots, and policy exception flags.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    appointment = models.ForeignKey(
+        Appointment,
+        on_delete=models.CASCADE,
+        related_name="history",
+        verbose_name=_("appointment"),
+        db_index=True,
+    )
+    event_type = models.CharField(
+        _("event type"),
+        max_length=50,
+        choices=AppointmentHistoryEventType.choices,
+        db_index=True,
+    )
+    previous_status = models.CharField(
+        _("previous status"),
+        max_length=30,
+        blank=True,
+        default="",
+    )
+    new_status = models.CharField(
+        _("new status"),
+        max_length=30,
+        blank=True,
+        default="",
+    )
+    previous_start_at = models.DateTimeField(
+        _("previous start time"),
+        null=True,
+        blank=True,
+    )
+    previous_end_at = models.DateTimeField(
+        _("previous end time"),
+        null=True,
+        blank=True,
+    )
+    new_start_at = models.DateTimeField(
+        _("new start time"),
+        null=True,
+        blank=True,
+    )
+    new_end_at = models.DateTimeField(
+        _("new end time"),
+        null=True,
+        blank=True,
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="appointment_history_entries",
+        verbose_name=_("actor"),
+    )
+    actor_role = models.CharField(
+        _("actor role"),
+        max_length=30,
+        blank=True,
+        default="",
+    )
+    reason = models.TextField(
+        _("reason or cancellation note"),
+        blank=True,
+        default="",
+    )
+    is_exception = models.BooleanField(
+        _("cutoff exception used"),
+        default=False,
+        help_text=_("Indicates whether this operation bypassed standard cutoff policies."),
+    )
+    metadata = models.JSONField(
+        _("metadata"),
+        default=dict,
+        blank=True,
+    )
+    created_at = models.DateTimeField(_("timestamp"), auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = "appointments_history"
+        verbose_name = _("appointment history")
+        verbose_name_plural = _("appointment histories")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["appointment", "created_at"]),
+            models.Index(fields=["event_type", "created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"[{self.created_at}] {self.appointment.booking_reference}: {self.event_type} by {self.actor or 'System'}"
 
 
 class AppointmentIdempotency(models.Model):
