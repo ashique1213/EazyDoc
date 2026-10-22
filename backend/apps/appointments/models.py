@@ -122,6 +122,29 @@ class Appointment(models.Model):
         db_index=True,
         help_text=_("Flag indicating that doctor/clinic unavailability requires this appointment to be rescheduled or cancelled."),
     )
+    payment_status = models.CharField(
+        _("payment status"),
+        max_length=30,
+        choices=[
+            ("NOT_REQUIRED", _("Not Required")),
+            ("PENDING", _("Pending")),
+            ("AUTHORIZED", _("Authorized")),
+            ("PAID", _("Paid")),
+            ("FAILED", _("Failed")),
+            ("REFUND_PENDING", _("Refund Pending")),
+            ("PARTIALLY_REFUNDED", _("Partially Refunded")),
+            ("REFUNDED", _("Refunded")),
+        ],
+        default="PENDING",
+        db_index=True,
+    )
+    reservation_expires_at = models.DateTimeField(
+        _("reservation expires at"),
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_("Timestamp until which this pending appointment holds the slot reservation."),
+    )
     created_at = models.DateTimeField(_("created at"), auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(_("updated at"), auto_now=True)
 
@@ -145,12 +168,14 @@ class Appointment(models.Model):
             models.Index(fields=["clinic", "start_at"]),
             models.Index(fields=["patient", "start_at"]),
             models.Index(fields=["status", "start_at"]),
+            models.Index(fields=["payment_status", "start_at"]),
             models.Index(fields=["doctor", "status", "start_at"]),
             models.Index(fields=["reschedule_required", "start_at"]),
+            models.Index(fields=["reservation_expires_at"]),
         ]
 
     def __str__(self) -> str:
-        return f"[{self.booking_reference}] {self.patient.email} - Dr. {self.doctor.full_name} @ {self.clinic.name} ({self.status})"
+        return f"[{self.booking_reference}] {self.patient.email} - Dr. {self.doctor.full_name} @ {self.clinic.name} ({self.status}/{self.payment_status})"
 
     def clean(self):
         super().clean()
@@ -164,11 +189,22 @@ class Appointment(models.Model):
         return 0
 
     @property
+    def is_reservation_expired(self) -> bool:
+        """Checks if a pending reservation has expired."""
+        if self.status == AppointmentStatus.PENDING_CONFIRMATION and self.reservation_expires_at:
+            from django.utils import timezone
+            return self.reservation_expires_at <= timezone.now()
+        return False
+
+    @property
     def is_blocking(self) -> bool:
         """Determines whether this appointment status blocks other bookings for the same doctor."""
+        if self.status == AppointmentStatus.PENDING_CONFIRMATION:
+            if self.is_reservation_expired:
+                return False
+            return True
         return self.status in (
             AppointmentStatus.CONFIRMED,
-            AppointmentStatus.PENDING_CONFIRMATION,
             AppointmentStatus.COMPLETED,
         )
 
@@ -182,6 +218,10 @@ class AppointmentHistoryEventType(models.TextChoices):
     ADMIN_OVERRIDE = "ADMIN_OVERRIDE", _("Administrative Override")
     COMPLETED = "COMPLETED", _("Completed")
     NO_SHOW = "NO_SHOW", _("No Show")
+    PAYMENT_COMPLETED = "PAYMENT_COMPLETED", _("Payment Completed")
+    PAYMENT_FAILED = "PAYMENT_FAILED", _("Payment Failed")
+    RESERVATION_EXPIRED = "RESERVATION_EXPIRED", _("Reservation Expired")
+    LATE_PAYMENT_CONFLICT = "LATE_PAYMENT_CONFLICT", _("Late Payment Slot Conflict")
 
 
 class AppointmentHistory(models.Model):

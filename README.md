@@ -209,3 +209,12 @@ npm run build
 - **OpenAPI Schema:** `GET /api/schema/`
 - **Interactive Swagger UI:** `http://localhost:8000/api/docs/`
 - **Interactive ReDoc:** `http://localhost:8000/api/redoc/`
+
+---
+
+## 9. Payments & Platform Commission (Day 11)
+
+- **Razorpay Integration**: Server-authorized order creation, client-side Razorpay Checkout, backend HMAC-SHA256 signature verification, and idempotent webhook handling.
+- **Platform Commission**: Default 5.00% platform commission with configurable clinic overrides (`Clinic.commission_rate`), strict `ROUND_HALF_UP` decimal calculations, and invariant enforcement ($gross = commission + clinic\_share$).
+- **Pending Reservations**: Configurable reservation expiry (`PAYMENT_RESERVATION_TIMEOUT_MINUTES=15`) with concurrency conflict protection against late overlapping bookings.
+- **Detailed Specification**: See [docs/payments-and-commission.md](file:///d:/Projects/EazyDoc/docs/payments-and-commission.md).

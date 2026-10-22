@@ -298,6 +298,7 @@ def generate_doctor_availability_slots(
     try:
         from apps.appointments.models import Appointment, AppointmentStatus
         buffer_margin = timedelta(minutes=120)
+        now_dt = datetime.now(dt_timezone.utc)
         appointments = list(
             Appointment.objects.filter(doctor=doctor)
             .filter(
@@ -306,6 +307,10 @@ def generate_doctor_availability_slots(
                     AppointmentStatus.PENDING_CONFIRMATION,
                     AppointmentStatus.COMPLETED,
                 ]
+            )
+            .exclude(
+                status=AppointmentStatus.PENDING_CONFIRMATION,
+                reservation_expires_at__lte=now_dt,
             )
             .filter(
                 start_at__lt=day_end_utc + buffer_margin,

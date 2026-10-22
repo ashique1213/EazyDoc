@@ -29,3 +29,4 @@ drf-spectacular>=0.28.0
 python-dateutil>=2.9.0
 pytz>=2024.1
 Pillow>=10.0.0
+razorpay>=2.0.0

@@ -241,3 +241,15 @@ LOGGING = {
         },
     },
 }
+
+# Razorpay & Payments Configuration
+from decimal import Decimal
+
+RAZORPAY_KEY_ID = env("RAZORPAY_KEY_ID", default="rzp_test_placeholder_key_id")
+RAZORPAY_KEY_SECRET = env("RAZORPAY_KEY_SECRET", default="placeholder_secret_key_not_used_in_day2")
+RAZORPAY_WEBHOOK_SECRET = env("RAZORPAY_WEBHOOK_SECRET", default="")
+RAZORPAY_CURRENCY = env("RAZORPAY_CURRENCY", default="INR")
+
+# Platform Commission & Reservation Settings
+PLATFORM_DEFAULT_COMMISSION_RATE = Decimal(str(env("PLATFORM_DEFAULT_COMMISSION_RATE", default="5.00")))
+PAYMENT_RESERVATION_TIMEOUT_MINUTES = env.int("PAYMENT_RESERVATION_TIMEOUT_MINUTES", default=15)

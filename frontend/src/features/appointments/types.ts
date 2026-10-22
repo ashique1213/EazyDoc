@@ -36,10 +36,22 @@ export interface AppointmentPatientSummary {
   phone: string | null;
 }
 
+export type PaymentStatus =
+  | "NOT_REQUIRED"
+  | "PENDING"
+  | "AUTHORIZED"
+  | "PAID"
+  | "FAILED"
+  | "REFUND_PENDING"
+  | "PARTIALLY_REFUNDED"
+  | "REFUNDED";
+
 export interface Appointment {
   id: string;
   booking_reference: string;
   status: AppointmentStatus;
+  payment_status?: PaymentStatus;
+  reservation_expires_at?: string | null;
   start_at: string;
   end_at: string;
   duration_minutes: number;

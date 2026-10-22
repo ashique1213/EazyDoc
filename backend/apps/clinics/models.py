@@ -87,11 +87,26 @@ class Clinic(models.Model):
         related_name="approved_clinics",
         verbose_name=_("approved by"),
     )
+    commission_rate = models.DecimalField(
+        _("platform commission rate percentage"),
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text=_("Clinic-specific platform commission percentage (0.00 to 100.00). If null, uses platform default."),
+    )
 
     class Meta:
         verbose_name = _("clinic")
         verbose_name_plural = _("clinics")
         ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(commission_rate__isnull=True)
+                | (models.Q(commission_rate__gte=Decimal("0.00")) & models.Q(commission_rate__lte=Decimal("100.00"))),
+                name="valid_clinic_commission_rate",
+            ),
+        ]
         indexes = [
             models.Index(fields=["status", "created_at"]),
             models.Index(fields=["owner", "status"]),
@@ -128,6 +143,12 @@ class Clinic(models.Model):
             counter += 1
 
         return slug
+
+    def clean(self):
+        super().clean()
+        if self.commission_rate is not None:
+            if self.commission_rate < Decimal("0.00") or self.commission_rate > Decimal("100.00"):
+                raise ValidationError({"commission_rate": _("Commission rate must be between 0.00 and 100.00 percent.")})
 
     def save(self, *args, **kwargs):
         if not self.slug:

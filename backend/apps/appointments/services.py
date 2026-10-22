@@ -3,8 +3,10 @@ import logging
 import secrets
 import uuid
 from datetime import datetime, time, timedelta, timezone as dt_timezone
+from decimal import Decimal
 from typing import Any, Optional, Tuple
 from zoneinfo import ZoneInfo
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -78,6 +80,7 @@ def book_appointment(
     start_at: datetime,
     patient_note: str = "",
     idempotency_key: Optional[str] = None,
+    initial_status: AppointmentStatus = AppointmentStatus.CONFIRMED,
 ) -> Tuple[Appointment, bool]:
     """
     Atomically books a patient appointment with rigorous validation, cross-clinic
@@ -208,12 +211,20 @@ def book_appointment(
             AppointmentStatus.COMPLETED,
         ]
 
-        direct_conflict = Appointment.objects.filter(
-            doctor=doctor,
-            status__in=blocking_statuses,
-            start_at__lt=end_at,
-            end_at__gt=start_at,
-        ).exists()
+        now_dt = timezone.now()
+        direct_conflict = (
+            Appointment.objects.filter(
+                doctor=doctor,
+                status__in=blocking_statuses,
+                start_at__lt=end_at,
+                end_at__gt=start_at,
+            )
+            .exclude(
+                status=AppointmentStatus.PENDING_CONFIRMATION,
+                reservation_expires_at__lte=now_dt,
+            )
+            .exists()
+        )
         if direct_conflict:
             raise SlotUnavailableException(_("Slot conflict: Doctor already has an appointment during this time."))
 
@@ -221,12 +232,20 @@ def book_appointment(
         travel_buffer_mins = max(30, locked_dc.appointment_duration_minutes)
         buffer_delta = timedelta(minutes=travel_buffer_mins)
 
-        other_clinic_appts = Appointment.objects.filter(
-            doctor=doctor,
-            status__in=blocking_statuses,
-        ).exclude(clinic=locked_dc.clinic).filter(
-            start_at__lt=end_at + buffer_delta,
-            end_at__gt=start_at - buffer_delta,
+        other_clinic_appts = (
+            Appointment.objects.filter(
+                doctor=doctor,
+                status__in=blocking_statuses,
+            )
+            .exclude(clinic=locked_dc.clinic)
+            .exclude(
+                status=AppointmentStatus.PENDING_CONFIRMATION,
+                reservation_expires_at__lte=now_dt,
+            )
+            .filter(
+                start_at__lt=end_at + buffer_delta,
+                end_at__gt=start_at - buffer_delta,
+            )
         )
         if other_clinic_appts.exists():
             conflicting_clinic = other_clinic_appts.first().clinic.name
@@ -239,6 +258,14 @@ def book_appointment(
         consultation_fee = locked_dc.consultation_fee
         booking_ref = generate_booking_reference()
 
+        reservation_timeout = getattr(settings, "PAYMENT_RESERVATION_TIMEOUT_MINUTES", 15)
+        reservation_expires_at = (
+            timezone.now() + timedelta(minutes=reservation_timeout)
+            if initial_status == AppointmentStatus.PENDING_CONFIRMATION
+            else None
+        )
+        payment_status = "PENDING" if consultation_fee > Decimal("0.00") else "NOT_REQUIRED"
+
         try:
             appointment = Appointment.objects.create(
                 booking_reference=booking_ref,
@@ -248,7 +275,9 @@ def book_appointment(
                 clinic=locked_dc.clinic,
                 start_at=start_at,
                 end_at=end_at,
-                status=AppointmentStatus.CONFIRMED,
+                status=initial_status,
+                payment_status=payment_status,
+                reservation_expires_at=reservation_expires_at,
                 consultation_fee=consultation_fee,
                 currency="INR",
                 patient_note=patient_note.strip() if patient_note else "",
@@ -264,14 +293,14 @@ def book_appointment(
             appointment=appointment,
             event_type=AppointmentHistoryEventType.CREATED,
             previous_status="",
-            new_status=AppointmentStatus.CONFIRMED,
+            new_status=initial_status,
             new_start_at=start_at,
             new_end_at=end_at,
             actor=patient,
             actor_role=UserRole.PATIENT,
             reason=patient_note.strip() if patient_note else "",
             is_exception=False,
-            metadata={"action": "create"},
+            metadata={"action": "create", "initial_status": initial_status},
         )
 
         # 12. Persist Idempotency record (Rule 8)

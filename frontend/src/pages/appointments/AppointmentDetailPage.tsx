@@ -33,6 +33,7 @@ import {
   ReportUnavailabilityModal,
 } from "@/features/appointments";
 import type { AppointmentStatus } from "@/features/appointments";
+import { AppointmentPaymentCard } from "@/features/payments";
 import { useAuthStore } from "@/features/auth";
 
 function StatusBadge({ status }: { status: AppointmentStatus }) {
@@ -331,22 +332,42 @@ export function AppointmentDetailPage() {
             </div>
           </div>
 
-          {/* Fee Snapshot */}
-          <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-50/30 p-4 dark:bg-emerald-950/10">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-                <CreditCard className="h-4 w-4 text-emerald-600" />
-                <span>Consultation Fee (Snapshot)</span>
+          {/* Payment & Fee Card */}
+          {appointment.status !== "CANCELLED" && isPatient ? (
+            <AppointmentPaymentCard
+              appointmentId={appointment.id}
+              doctorName={appointment.doctor.full_name}
+              clinicName={appointment.clinic.name}
+              appointmentDateTime={`${dateFormatted} at ${timeFormatted}`}
+              consultationFee={appointment.consultation_fee}
+              currency={appointment.currency}
+              initialPaymentStatus={appointment.payment_status || "PENDING"}
+              patientName={user ? `${user.first_name || ""} ${user.last_name || ""}`.trim() : undefined}
+              patientEmail={user?.email}
+              patientPhone={user?.phone || undefined}
+              onPaymentSuccess={() => {
+                refetch();
+              }}
+            />
+          ) : (
+            <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-50/30 p-4 dark:bg-emerald-950/10">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                  <CreditCard className="h-4 w-4 text-emerald-600" />
+                  <span>Consultation Fee (Snapshot)</span>
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  {appointment.payment_status === "PAID"
+                    ? "Paid securely via Razorpay."
+                    : "Locked at booking time."}
+                </div>
               </div>
-              <div className="text-[11px] text-muted-foreground">
-                Payable directly at the clinic. Locked at booking time.
-              </div>
-            </div>
 
-            <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-              ₹{appointment.consultation_fee}
+              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                ₹{appointment.consultation_fee}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Policy & Cutoff Card */}
           {canModify && (
