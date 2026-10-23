@@ -1,3 +1,4 @@
+from django.utils.dateparse import parse_date
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
@@ -43,6 +44,19 @@ class AdminClinicListView(APIView):
         status_filter = request.query_params.get("status")
         if status_filter:
             queryset = queryset.filter(status=status_filter.upper())
+
+        # Date range filters
+        date_from = request.query_params.get("date_from")
+        if date_from:
+            d_from = parse_date(date_from)
+            if d_from:
+                queryset = queryset.filter(created_at__date__gte=d_from)
+
+        date_to = request.query_params.get("date_to")
+        if date_to:
+            d_to = parse_date(date_to)
+            if d_to:
+                queryset = queryset.filter(created_at__date__lte=d_to)
 
         # Keyword search
         search_query = request.query_params.get("search")

@@ -10,6 +10,9 @@ import {
   Loader2,
   ShieldCheck,
   Calendar,
+  Users,
+  CreditCard,
+  Percent,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -75,21 +78,56 @@ export function DashboardLayout({ roleTitle = "Dashboard" }: DashboardLayoutProp
                 className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors"
               >
                 <LayoutDashboard className="h-4 w-4 text-primary" />
-                <span>Overview</span>
+                <span>Dashboard Overview</span>
               </Link>
               <Link
                 to="/admin/clinics"
                 className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               >
-                <Building2 className="h-4 w-4" />
+                <Building2 className="h-4 w-4 text-emerald-600" />
                 <span>Clinics Oversight</span>
               </Link>
               <Link
                 to="/admin/doctors"
                 className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               >
-                <Stethoscope className="h-4 w-4" />
-                <span>Doctors Oversight</span>
+                <Stethoscope className="h-4 w-4 text-blue-600" />
+                <span>Doctors Verification</span>
+              </Link>
+              <Link
+                to="/admin/users"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Users className="h-4 w-4 text-purple-600" />
+                <span>User Accounts</span>
+              </Link>
+              <Link
+                to="/admin/appointments"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Calendar className="h-4 w-4 text-indigo-600" />
+                <span>Appointments Admin</span>
+              </Link>
+              <Link
+                to="/admin/finance"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <CreditCard className="h-4 w-4 text-emerald-600" />
+                <span>Finance & Payments</span>
+              </Link>
+              <Link
+                to="/admin/settings/commission"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Percent className="h-4 w-4 text-amber-600" />
+                <span>Commission Settings</span>
+              </Link>
+              <Link
+                to="/admin/audit-logs"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <ShieldCheck className="h-4 w-4 text-primary" />
+                <span>Audit Trail</span>
               </Link>
             </>
           ) : user?.role === "DOCTOR" ? (

@@ -411,3 +411,51 @@ class PaymentAuditLog(models.Model):
 
     def __str__(self) -> str:
         return f"PaymentAudit[{self.created_at}] {self.event_type} - {self.payment_id or 'N/A'}"
+
+
+class PlatformSetting(models.Model):
+    """
+    Platform-wide administrative configuration parameters.
+    Allows runtime modification of default commission rates and platform policies.
+    """
+    key = models.CharField(_("setting key"), max_length=100, unique=True, db_index=True)
+    value = models.JSONField(_("setting value"), default=dict)
+    description = models.CharField(_("description"), max_length=255, blank=True, default="")
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name=_("updated by"),
+    )
+    updated_at = models.DateTimeField(_("updated at"), auto_now=True)
+
+    class Meta:
+        db_table = "payments_platform_setting"
+        verbose_name = _("platform setting")
+        verbose_name_plural = _("platform settings")
+
+    def __str__(self) -> str:
+        return f"{self.key}: {self.value}"
+
+    @classmethod
+    def get_default_commission_rate(cls) -> Decimal:
+        try:
+            setting = cls.objects.filter(key="default_commission_rate").first()
+            if setting and isinstance(setting.value, dict) and "rate" in setting.value:
+                return Decimal(str(setting.value["rate"]))
+        except Exception:
+            pass
+        return getattr(settings, "PLATFORM_DEFAULT_COMMISSION_RATE", Decimal("5.00"))
+
+    @classmethod
+    def set_default_commission_rate(cls, rate: Decimal, user=None) -> "PlatformSetting":
+        setting, _ = cls.objects.get_or_create(
+            key="default_commission_rate",
+            defaults={"description": "Platform default commission rate percentage"},
+        )
+        setting.value = {"rate": str(rate)}
+        setting.updated_by = user
+        setting.save()
+        return setting

@@ -86,8 +86,8 @@ def calculate_commission(
     elif clinic and clinic.commission_rate is not None:
         effective_rate = Decimal(str(clinic.commission_rate))
     else:
-        default_rate = getattr(settings, "PLATFORM_DEFAULT_COMMISSION_RATE", Decimal("5.00"))
-        effective_rate = Decimal(str(default_rate))
+        from .models import PlatformSetting
+        effective_rate = PlatformSetting.get_default_commission_rate()
 
     # Validate range [0.00, 100.00]
     if effective_rate < Decimal("0.00") or effective_rate > Decimal("100.00"):

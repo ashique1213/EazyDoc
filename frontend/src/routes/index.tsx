@@ -25,6 +25,11 @@ import AdminClinicsPage from "@/pages/admin/AdminClinicsPage";
 import AdminClinicDetailPage from "@/pages/admin/AdminClinicDetailPage";
 import AdminDoctorsPage from "@/pages/admin/AdminDoctorsPage";
 import AdminDoctorDetailPage from "@/pages/admin/AdminDoctorDetailPage";
+import AdminUsersPage from "@/pages/admin/AdminUsersPage";
+import AdminAppointmentsPage from "@/pages/admin/AdminAppointmentsPage";
+import AdminFinancePage from "@/pages/admin/AdminFinancePage";
+import AdminCommissionSettingsPage from "@/pages/admin/AdminCommissionSettingsPage";
+import AdminAuditLogsPage from "@/pages/admin/AdminAuditLogsPage";
 
 import { ProtectedRoute } from "@/features/auth";
 
@@ -191,6 +196,10 @@ export const router = createBrowserRouter([
         element: <AdminPage />,
       },
       {
+        path: "dashboard",
+        element: <AdminPage />,
+      },
+      {
         path: "clinics",
         element: <AdminClinicsPage />,
       },
@@ -205,6 +214,26 @@ export const router = createBrowserRouter([
       {
         path: "doctors/:id",
         element: <AdminDoctorDetailPage />,
+      },
+      {
+        path: "users",
+        element: <AdminUsersPage />,
+      },
+      {
+        path: "appointments",
+        element: <AdminAppointmentsPage />,
+      },
+      {
+        path: "finance",
+        element: <AdminFinancePage />,
+      },
+      {
+        path: "settings/commission",
+        element: <AdminCommissionSettingsPage />,
+      },
+      {
+        path: "audit-logs",
+        element: <AdminAuditLogsPage />,
       },
     ],
   },
