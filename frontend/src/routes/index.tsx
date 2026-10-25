@@ -14,6 +14,13 @@ import ClinicPage from "@/pages/ClinicPage";
 import ClinicRegisterPage from "@/pages/clinic/ClinicRegisterPage";
 import MyClinicsPage from "@/pages/clinic/MyClinicsPage";
 import ClinicDetailPage from "@/pages/clinic/ClinicDetailPage";
+import { ClinicAppointmentsPage } from "@/pages/clinic/ClinicAppointmentsPage";
+import { ClinicCalendarPage } from "@/pages/clinic/ClinicCalendarPage";
+import { ClinicDoctorsPage } from "@/pages/clinic/ClinicDoctorsPage";
+import { ClinicStaffPage } from "@/pages/clinic/ClinicStaffPage";
+import { ClinicFinancePage } from "@/pages/clinic/ClinicFinancePage";
+import { ClinicSettingsPage } from "@/pages/clinic/ClinicSettingsPage";
+import { ClinicProvider } from "@/features/clinicOperations";
 import DoctorPage from "@/pages/DoctorPage";
 import DoctorProfilePage from "@/pages/doctor/DoctorProfilePage";
 import DoctorVerificationPage from "@/pages/doctor/DoctorVerificationPage";
@@ -109,17 +116,43 @@ export const router = createBrowserRouter([
     path: "clinic",
     element: (
       <ProtectedRoute allowedRoles={["CLINIC_OWNER", "STAFF"]}>
-        <DashboardLayout roleTitle="Clinic SaaS Portal" />
+        <ClinicProvider>
+          <DashboardLayout roleTitle="Clinic SaaS Portal" />
+        </ClinicProvider>
       </ProtectedRoute>
     ),
     children: [
       {
         index: true,
-        element: <MyClinicsPage />,
+        element: <ClinicPage />,
       },
       {
         path: "dashboard",
         element: <ClinicPage />,
+      },
+      {
+        path: "appointments",
+        element: <ClinicAppointmentsPage />,
+      },
+      {
+        path: "calendar",
+        element: <ClinicCalendarPage />,
+      },
+      {
+        path: "doctors",
+        element: <ClinicDoctorsPage />,
+      },
+      {
+        path: "staff",
+        element: <ClinicStaffPage />,
+      },
+      {
+        path: "finance",
+        element: <ClinicFinancePage />,
+      },
+      {
+        path: "settings",
+        element: <ClinicSettingsPage />,
       },
       {
         path: "register",

@@ -304,3 +304,111 @@ class DoctorClinic(models.Model):
         if self.appointment_duration_minutes is not None:
             if self.appointment_duration_minutes < 5 or self.appointment_duration_minutes > 240:
                 raise ValidationError({"appointment_duration_minutes": _("Duration must be between 5 and 240 minutes.")})
+
+
+class ClinicStaffPermission(models.TextChoices):
+    """Granular permissions that can be granted to clinic staff members."""
+    VIEW_APPOINTMENTS = "VIEW_APPOINTMENTS", _("View Appointments")
+    MANAGE_APPOINTMENTS = "MANAGE_APPOINTMENTS", _("Manage Appointments")
+    VIEW_DOCTORS = "VIEW_DOCTORS", _("View Doctors")
+    MANAGE_DOCTOR_ASSOCIATIONS = "MANAGE_DOCTOR_ASSOCIATIONS", _("Manage Doctor Associations")
+    MANAGE_SCHEDULES = "MANAGE_SCHEDULES", _("Manage Schedules")
+    VIEW_FINANCIAL_SUMMARY = "VIEW_FINANCIAL_SUMMARY", _("View Financial Summary")
+    MANAGE_CLINIC_PROFILE = "MANAGE_CLINIC_PROFILE", _("Manage Clinic Profile")
+    MANAGE_STAFF = "MANAGE_STAFF", _("Manage Staff")
+
+
+class ClinicStaff(models.Model):
+    """
+    Associates an active user with role STAFF to a specific clinic with granular permissions.
+    Enforces tenant boundaries and prevents privilege escalation.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    clinic = models.ForeignKey(
+        Clinic,
+        on_delete=models.CASCADE,
+        related_name="staff_members",
+        verbose_name=_("clinic"),
+        db_index=True,
+    )
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="staff_profile",
+        verbose_name=_("user account"),
+        db_index=True,
+    )
+    role_title = models.CharField(_("staff role title"), max_length=100, default="Clinic Staff")
+    permissions = models.JSONField(
+        _("granted permissions"),
+        default=list,
+        help_text=_("List of explicit ClinicStaffPermission strings."),
+    )
+    is_active = models.BooleanField(_("is active"), default=True, db_index=True)
+    created_at = models.DateTimeField(_("created at"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("updated at"), auto_now=True)
+
+    class Meta:
+        verbose_name = _("clinic staff")
+        verbose_name_plural = _("clinic staff members")
+        indexes = [
+            models.Index(fields=["clinic", "is_active"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user.get_full_name() or self.user.email} - {self.role_title} @ {self.clinic.name}"
+
+    def has_permission(self, perm: str) -> bool:
+        if not self.is_active:
+            return False
+        return perm in self.permissions
+
+
+class ClinicClosure(models.Model):
+    """
+    Represents an operational closure interval for a clinic (public holiday, maintenance, emergency).
+    Used to track unavailable periods, block bookings, and preview affected appointments.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    clinic = models.ForeignKey(
+        Clinic,
+        on_delete=models.CASCADE,
+        related_name="closures",
+        verbose_name=_("clinic"),
+        db_index=True,
+    )
+    start_date = models.DateField(_("start date"), db_index=True)
+    end_date = models.DateField(_("end date"), db_index=True)
+    reason = models.CharField(_("reason"), max_length=255)
+    notes = models.TextField(_("additional notes"), blank=True, default="")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_clinic_closures",
+        verbose_name=_("created by"),
+    )
+    is_active = models.BooleanField(_("is active"), default=True, db_index=True)
+    created_at = models.DateTimeField(_("created at"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("updated at"), auto_now=True)
+
+    class Meta:
+        verbose_name = _("clinic closure")
+        verbose_name_plural = _("clinic closures")
+        ordering = ["-start_date"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(start_date__lte=models.F("end_date")),
+                name="valid_clinic_closure_dates",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["clinic", "start_date", "end_date"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.clinic.name} Closure ({self.start_date} to {self.end_date}): {self.reason}"
+

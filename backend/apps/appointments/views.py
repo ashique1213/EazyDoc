@@ -1,10 +1,12 @@
 from datetime import datetime
+from django.db import transaction
+from django.db.models import Q
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, status
-from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.utils import timezone
 
 from apps.accounts.models import UserRole
 from apps.accounts.permissions import (
@@ -13,9 +15,11 @@ from apps.accounts.permissions import (
     IsDoctor,
     IsPatient,
 )
-from apps.clinics.models import Clinic
+from apps.audit_logs.services import log_audit_event
+from apps.clinics.models import Clinic, ClinicStaffPermission
+from apps.clinics.permissions import check_clinic_access
 from apps.doctors.models import Doctor
-from .models import Appointment, AppointmentStatus
+from .models import Appointment, AppointmentHistory, AppointmentHistoryEventType, AppointmentStatus
 from .permissions import CanAccessAppointment
 from .serializers import (
     AppointmentBookingRequestSerializer,
@@ -29,6 +33,8 @@ from .serializers import (
 from .services import (
     book_appointment,
     cancel_appointment,
+    complete_appointment,
+    mark_no_show,
     reschedule_appointment,
     report_doctor_unavailability_for_appointment,
 )
@@ -139,19 +145,24 @@ class AppointmentDetailView(generics.RetrieveAPIView):
 class ClinicAppointmentsListView(generics.ListAPIView):
     """
     GET /api/v1/clinics/{clinic_id}/appointments/
-    Lists appointments for an authorized clinic owner or staff member.
+    Lists appointments for an authorized clinic owner or staff member with VIEW_APPOINTMENTS permission.
+    Supports filtering by doctor, status, date, date range, upcoming/past, keyword search, and requires_attention.
     """
     permission_classes = [IsAuthenticatedUser, IsClinicStaffOrOwner]
     serializer_class = AppointmentDetailSerializer
 
     @extend_schema(
         summary="List Clinic Appointments",
-        description="Lists appointments for a specific clinic. Restricted to clinic owner and staff.",
+        description="Lists appointments for a specific clinic. Restricted to clinic owner and authorized staff.",
         parameters=[
             OpenApiParameter(name="doctor_id", type=str, description="Filter by doctor UUID"),
             OpenApiParameter(name="status", type=str, description="AppointmentStatus filter"),
             OpenApiParameter(name="date", type=str, description="Filter by YYYY-MM-DD"),
+            OpenApiParameter(name="from_date", type=str, description="Start date YYYY-MM-DD"),
+            OpenApiParameter(name="to_date", type=str, description="End date YYYY-MM-DD"),
             OpenApiParameter(name="filter", type=str, description="upcoming | past"),
+            OpenApiParameter(name="requires_attention", type=bool, description="Filter appointments requiring attention"),
+            OpenApiParameter(name="search", type=str, description="Search by booking reference or patient details"),
         ],
     )
     def get_queryset(self):
@@ -160,14 +171,13 @@ class ClinicAppointmentsListView(generics.ListAPIView):
         if not clinic:
             raise NotFound("Clinic not found.")
 
-        # Ensure requesting user is owner or superadmin
         user = self.request.user
-        if user.role != "SUPER_ADMIN" and clinic.owner_id != user.id:
+        if not check_clinic_access(user, clinic, required_permission=ClinicStaffPermission.VIEW_APPOINTMENTS):
             raise PermissionDenied("You do not have permission to view appointments for this clinic.")
 
         qs = (
             Appointment.objects.filter(clinic_id=clinic_id)
-            .select_related("doctor", "clinic", "patient")
+            .select_related("doctor", "clinic", "patient", "doctor_clinic")
             .order_by("-start_at")
         )
 
@@ -193,6 +203,41 @@ class ClinicAppointmentsListView(generics.ListAPIView):
                 qs = qs.filter(start_at__date=parsed_date)
             except ValueError:
                 pass
+
+        from_date = self.request.query_params.get("from_date")
+        if from_date:
+            try:
+                parsed_from = datetime.strptime(from_date, "%Y-%m-%d").date()
+                qs = qs.filter(start_at__date__gte=parsed_from)
+            except ValueError:
+                pass
+
+        to_date = self.request.query_params.get("to_date")
+        if to_date:
+            try:
+                parsed_to = datetime.strptime(to_date, "%Y-%m-%d").date()
+                qs = qs.filter(start_at__date__lte=parsed_to)
+            except ValueError:
+                pass
+
+        requires_attention = self.request.query_params.get("requires_attention")
+        if requires_attention is not None and str(requires_attention).lower() in ("true", "1"):
+            qs = qs.filter(
+                Q(reschedule_required=True)
+                | Q(status=AppointmentStatus.RESCHEDULE_REQUIRED)
+                | Q(status=AppointmentStatus.PENDING_CONFIRMATION)
+            )
+
+        search_param = self.request.query_params.get("search")
+        if search_param:
+            search_val = search_param.strip()
+            qs = qs.filter(
+                Q(booking_reference__icontains=search_val)
+                | Q(patient__first_name__icontains=search_val)
+                | Q(patient__last_name__icontains=search_val)
+                | Q(patient__email__icontains=search_val)
+                | Q(patient__phone__icontains=search_val)
+            )
 
         return qs
 
@@ -444,9 +489,7 @@ class ClinicAppointmentCancelView(APIView):
             raise NotFound("Clinic not found.")
 
         user = request.user
-        if user.role == UserRole.CLINIC_OWNER and clinic.owner_id != user.id:
-            raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
-        elif user.role == UserRole.STAFF and (not hasattr(user, "staff_profile") or user.staff_profile.clinic_id != clinic.id):
+        if not check_clinic_access(user, clinic, required_permission=ClinicStaffPermission.MANAGE_APPOINTMENTS):
             raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
 
         appointment = (
@@ -495,9 +538,7 @@ class ClinicAppointmentRescheduleView(APIView):
             raise NotFound("Clinic not found.")
 
         user = request.user
-        if user.role == UserRole.CLINIC_OWNER and clinic.owner_id != user.id:
-            raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
-        elif user.role == UserRole.STAFF and (not hasattr(user, "staff_profile") or user.staff_profile.clinic_id != clinic.id):
+        if not check_clinic_access(user, clinic, required_permission=ClinicStaffPermission.MANAGE_APPOINTMENTS):
             raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
 
         appointment = (
@@ -550,9 +591,7 @@ class ClinicAppointmentReportUnavailabilityView(APIView):
             raise NotFound("Clinic not found.")
 
         user = request.user
-        if user.role == UserRole.CLINIC_OWNER and clinic.owner_id != user.id:
-            raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
-        elif user.role == UserRole.STAFF and (not hasattr(user, "staff_profile") or user.staff_profile.clinic_id != clinic.id):
+        if not check_clinic_access(user, clinic, required_permission=ClinicStaffPermission.MANAGE_APPOINTMENTS):
             raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
 
         appointment = (
@@ -575,6 +614,206 @@ class ClinicAppointmentReportUnavailabilityView(APIView):
             action=action,
         )
         return Response(AppointmentDetailSerializer(updated_appt).data, status=status.HTTP_200_OK)
+
+
+class ClinicAppointmentDetailView(APIView):
+    """
+    GET /api/v1/clinics/{clinic_id}/appointments/{appointment_id}/
+    Detailed representation of a specific clinic appointment including audit history.
+    """
+    permission_classes = [IsAuthenticatedUser, IsClinicStaffOrOwner]
+
+    @extend_schema(
+        summary="Get Clinic Appointment Detail",
+        description="Retrieves full appointment details and event history scoped to the clinic.",
+    )
+    def get(self, request, clinic_id, appointment_id):
+        clinic = Clinic.objects.filter(id=clinic_id).first()
+        if not clinic:
+            raise NotFound("Clinic not found.")
+
+        if not check_clinic_access(request.user, clinic, required_permission=ClinicStaffPermission.VIEW_APPOINTMENTS):
+            raise PermissionDenied("You do not have permission to view appointments for this clinic.")
+
+        appointment = (
+            Appointment.objects.select_related("clinic", "doctor", "doctor_clinic", "patient")
+            .prefetch_related("history", "history__actor")
+            .filter(id=appointment_id)
+            .first()
+        )
+        if not appointment or str(appointment.clinic_id) != str(clinic.id):
+            raise NotFound("Appointment not found for this clinic.")
+
+        data = AppointmentDetailSerializer(appointment).data
+        history_qs = appointment.history.select_related("actor").order_by("-created_at")
+        data["history"] = AppointmentHistorySerializer(history_qs, many=True).data
+
+        return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
+
+
+class ClinicAppointmentConfirmView(APIView):
+    """
+    POST /api/v1/clinics/{clinic_id}/appointments/{appointment_id}/confirm/
+    Confirms an appointment that is pending confirmation.
+    """
+    permission_classes = [IsAuthenticatedUser, IsClinicStaffOrOwner]
+
+    @extend_schema(
+        summary="Confirm Clinic Appointment",
+        description="Transitions an appointment from PENDING_CONFIRMATION to CONFIRMED.",
+    )
+    def post(self, request, clinic_id, appointment_id):
+        clinic = Clinic.objects.filter(id=clinic_id).first()
+        if not clinic:
+            raise NotFound("Clinic not found.")
+
+        if not check_clinic_access(request.user, clinic, required_permission=ClinicStaffPermission.MANAGE_APPOINTMENTS):
+            raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
+
+        appointment = (
+            Appointment.objects.select_related("clinic", "doctor", "patient")
+            .filter(id=appointment_id)
+            .first()
+        )
+        if not appointment or str(appointment.clinic_id) != str(clinic.id):
+            raise NotFound("Appointment not found for this clinic.")
+
+        if appointment.status in (AppointmentStatus.CANCELLED, AppointmentStatus.COMPLETED):
+            raise ValidationError(f"Cannot confirm an appointment that is already {appointment.status.lower()}.")
+
+        with transaction.atomic():
+            locked = Appointment.objects.select_for_update().get(id=appointment.id)
+            prev_status = locked.status
+            locked.status = AppointmentStatus.CONFIRMED
+            locked.reschedule_required = False
+            locked.save(update_fields=["status", "reschedule_required", "updated_at"])
+
+            AppointmentHistory.objects.create(
+                appointment=locked,
+                event_type=AppointmentHistoryEventType.CONFIRMED,
+                previous_status=prev_status,
+                new_status=AppointmentStatus.CONFIRMED,
+                actor=request.user,
+                actor_role=getattr(request.user, "role", ""),
+                reason="Confirmed by clinic reception / administration.",
+            )
+
+            log_audit_event(
+                action="APPOINTMENT_CONFIRMED",
+                resource_type="Appointment",
+                resource_id=str(locked.id),
+                clinic_id=str(clinic.id),
+                actor=request.user,
+                request=request,
+                details={"booking_reference": locked.booking_reference},
+            )
+
+        return Response(
+            {
+                "success": True,
+                "message": "Appointment confirmed successfully.",
+                "data": AppointmentDetailSerializer(locked).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class ClinicAppointmentCompleteView(APIView):
+    """
+    POST /api/v1/clinics/{clinic_id}/appointments/{appointment_id}/complete/
+    Marks a completed consultation.
+    """
+    permission_classes = [IsAuthenticatedUser, IsClinicStaffOrOwner]
+
+    @extend_schema(
+        summary="Complete Clinic Appointment",
+        description="Marks an active consultation as COMPLETED.",
+    )
+    def post(self, request, clinic_id, appointment_id):
+        clinic = Clinic.objects.filter(id=clinic_id).first()
+        if not clinic:
+            raise NotFound("Clinic not found.")
+
+        if not check_clinic_access(request.user, clinic, required_permission=ClinicStaffPermission.MANAGE_APPOINTMENTS):
+            raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
+
+        appointment = (
+            Appointment.objects.select_related("clinic", "doctor", "patient")
+            .filter(id=appointment_id)
+            .first()
+        )
+        if not appointment or str(appointment.clinic_id) != str(clinic.id):
+            raise NotFound("Appointment not found for this clinic.")
+
+        completed_appt = complete_appointment(appointment, request.user)
+
+        log_audit_event(
+            action="APPOINTMENT_COMPLETED",
+            resource_type="Appointment",
+            resource_id=str(completed_appt.id),
+            clinic_id=str(clinic.id),
+            actor=request.user,
+            request=request,
+            details={"booking_reference": completed_appt.booking_reference},
+        )
+
+        return Response(
+            {
+                "success": True,
+                "message": "Appointment marked as completed.",
+                "data": AppointmentDetailSerializer(completed_appt).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class ClinicAppointmentNoShowView(APIView):
+    """
+    POST /api/v1/clinics/{clinic_id}/appointments/{appointment_id}/no-show/
+    Marks an appointment where the patient failed to attend as NO_SHOW.
+    """
+    permission_classes = [IsAuthenticatedUser, IsClinicStaffOrOwner]
+
+    @extend_schema(
+        summary="Mark Clinic Appointment No-Show",
+        description="Marks an unattended appointment as NO_SHOW.",
+    )
+    def post(self, request, clinic_id, appointment_id):
+        clinic = Clinic.objects.filter(id=clinic_id).first()
+        if not clinic:
+            raise NotFound("Clinic not found.")
+
+        if not check_clinic_access(request.user, clinic, required_permission=ClinicStaffPermission.MANAGE_APPOINTMENTS):
+            raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
+
+        appointment = (
+            Appointment.objects.select_related("clinic", "doctor", "patient")
+            .filter(id=appointment_id)
+            .first()
+        )
+        if not appointment or str(appointment.clinic_id) != str(clinic.id):
+            raise NotFound("Appointment not found for this clinic.")
+
+        no_show_appt = mark_no_show(appointment, request.user)
+
+        log_audit_event(
+            action="APPOINTMENT_MARKED_NO_SHOW",
+            resource_type="Appointment",
+            resource_id=str(no_show_appt.id),
+            clinic_id=str(clinic.id),
+            actor=request.user,
+            request=request,
+            details={"booking_reference": no_show_appt.booking_reference},
+        )
+
+        return Response(
+            {
+                "success": True,
+                "message": "Appointment marked as No-Show.",
+                "data": AppointmentDetailSerializer(no_show_appt).data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class DoctorAppointmentReportUnavailabilityView(APIView):
@@ -620,4 +859,5 @@ class DoctorAppointmentReportUnavailabilityView(APIView):
             action=action,
         )
         return Response(AppointmentDetailSerializer(updated_appt).data, status=status.HTTP_200_OK)
+
 

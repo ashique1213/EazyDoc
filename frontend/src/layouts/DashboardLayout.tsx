@@ -54,22 +54,78 @@ export function DashboardLayout({ roleTitle = "Dashboard" }: DashboardLayoutProp
         </div>
 
         <nav className="flex-1 space-y-1">
-          {user?.role === "CLINIC_OWNER" ? (
+          {user?.role === "CLINIC_OWNER" || user?.role === "STAFF" ? (
             <>
               <Link
-                to="/clinic/my-clinics"
+                to="/clinic/dashboard"
                 className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors"
               >
-                <Building2 className="h-4 w-4 text-primary" />
-                <span>My Clinics</span>
+                <LayoutDashboard className="h-4 w-4 text-primary" />
+                <span>Dashboard</span>
               </Link>
               <Link
-                to="/clinic/register"
+                to="/clinic/appointments"
                 className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               >
-                <LayoutDashboard className="h-4 w-4" />
-                <span>Register Clinic</span>
+                <Calendar className="h-4 w-4 text-blue-600" />
+                <span>Appointments Desk</span>
               </Link>
+              <Link
+                to="/clinic/calendar"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Calendar className="h-4 w-4 text-emerald-600" />
+                <span>Master Calendar</span>
+              </Link>
+              <Link
+                to="/clinic/doctors"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Stethoscope className="h-4 w-4 text-indigo-600" />
+                <span>Doctors & Fees</span>
+              </Link>
+              {user?.role === "CLINIC_OWNER" && (
+                <Link
+                  to="/clinic/staff"
+                  className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                >
+                  <Users className="h-4 w-4 text-purple-600" />
+                  <span>Clinic Staff</span>
+                </Link>
+              )}
+              <Link
+                to="/clinic/finance"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <CreditCard className="h-4 w-4 text-emerald-600" />
+                <span>Finance & Ledger</span>
+              </Link>
+              <Link
+                to="/clinic/settings"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Building2 className="h-4 w-4 text-amber-600" />
+                <span>Clinic Settings</span>
+              </Link>
+              <div className="pt-2 mt-2 border-t text-[11px] font-semibold text-muted-foreground px-3 uppercase tracking-wider">
+                Clinics Overview
+              </div>
+              <Link
+                to="/clinic/my-clinics"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Building2 className="h-4 w-4" />
+                <span>My Clinics</span>
+              </Link>
+              {user?.role === "CLINIC_OWNER" && (
+                <Link
+                  to="/clinic/register"
+                  className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                >
+                  <Building2 className="h-4 w-4" />
+                  <span>Register Clinic</span>
+                </Link>
+              )}
             </>
           ) : user?.role === "SUPER_ADMIN" ? (
             <>

@@ -66,6 +66,7 @@ export interface ClinicUpdatePayload {
   pincode?: string;
   country?: string;
   logo?: File | null;
+  timezone?: string;
 }
 
 export interface PaginatedResponse<T> {
