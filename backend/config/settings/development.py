@@ -13,6 +13,8 @@ if "test" in sys.argv or "pytest" in sys.modules or env.bool("USE_SQLITE", defau
     }
     REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = ()
     EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
 
 # Faster password hashing for development and test execution
 PASSWORD_HASHERS = [

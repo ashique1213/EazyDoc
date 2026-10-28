@@ -1,0 +1,16 @@
+{% extends "emails/base_email.html" %}
+
+{% block email_content %}
+<div class="details-box">
+  <p style="margin: 0 0 8px 0;"><strong>Notice:</strong> Schedule Disruption</p>
+  <p style="margin: 0 0 8px 0;"><strong>Doctor:</strong> Dr. {{ doctor_name|escape }}</p>
+  <p style="margin: 0 0 8px 0;"><strong>Clinic:</strong> {{ clinic_name|escape }}</p>
+  {% if booking_reference %}
+    <p style="margin: 0 0 8px 0;"><strong>Affected Booking:</strong> {{ booking_reference|escape }}</p>
+  {% endif %}
+  {% if reason %}
+    <p style="margin: 0;"><strong>Reason:</strong> {{ reason|escape }}</p>
+  {% endif %}
+</div>
+<p style="font-size: 14px; color: #64748b; margin-top: 12px;">Please log in to your account to review rescheduling or resolution options.</p>
+{% endblock %}

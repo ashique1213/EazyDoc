@@ -1,0 +1,23 @@
+EazyDoc - {{ title }}
+
+{{ message }}
+
+Doctor: Dr. {{ doctor_name }}
+Clinic: {{ clinic_name }}
+{% if booking_reference %}
+Affected Booking: {{ booking_reference }}
+{% endif %}
+{% if reason %}
+Reason: {{ reason }}
+{% endif %}
+
+Please log in to your account to review rescheduling or resolution options.
+
+{% if action_url %}
+View details: {{ action_url }}
+{% endif %}
+
+---
+This is an automated operational notification regarding your EazyDoc account.
+To ensure patient privacy, sensitive medical records are never included in emails.
+© {{ current_year|default:"2026" }} EazyDoc SaaS.

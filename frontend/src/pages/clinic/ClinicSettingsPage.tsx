@@ -131,10 +131,11 @@ export function ClinicSettingsPage() {
       });
       setProfileSuccessMsg("Clinic profile settings saved successfully.");
       refetchProfile();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string; message?: string } } };
       setProfileErrorMsg(
-        err.response?.data?.detail ||
-          err.response?.data?.message ||
+        error.response?.data?.detail ||
+          error.response?.data?.message ||
           "Failed to update clinic settings. Please review form entries."
       );
     }
@@ -164,8 +165,9 @@ export function ClinicSettingsPage() {
         reason: closureReason,
       });
       setClosurePreview(res);
-    } catch (err: any) {
-      setClosureError(err.response?.data?.detail || "Failed to inspect affected appointments.");
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string } } };
+      setClosureError(error.response?.data?.detail || "Failed to inspect affected appointments.");
     }
   };
 
@@ -181,8 +183,9 @@ export function ClinicSettingsPage() {
       });
       setIsClosureModalOpen(false);
       refetchClosures();
-    } catch (err: any) {
-      setClosureError(err.response?.data?.detail || "Failed to record closure.");
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string } } };
+      setClosureError(error.response?.data?.detail || "Failed to record closure.");
     }
   };
 
@@ -193,8 +196,9 @@ export function ClinicSettingsPage() {
     try {
       await deleteClosureMutation.mutateAsync(closureId);
       refetchClosures();
-    } catch (err: any) {
-      alert(err.response?.data?.detail || "Failed to remove closure.");
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string } } };
+      alert(error.response?.data?.detail || "Failed to remove closure.");
     }
   };
 

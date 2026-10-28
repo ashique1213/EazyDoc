@@ -348,6 +348,10 @@ def verify_payment_signature(
                 actor=patient,
                 data={"reason": "late_payment_slot_conflict", "order_id": razorpay_order_id},
             )
+
+            from apps.notifications.services import handle_payment_event
+            transaction.on_commit(lambda: handle_payment_event("payment_issue", payment.id))
+
             return payment
 
         # Standard successful verification
@@ -410,6 +414,10 @@ def verify_payment_signature(
             actor=patient,
             data={"order_id": razorpay_order_id, "payment_id": razorpay_payment_id},
         )
+
+        from apps.notifications.services import handle_payment_event, schedule_appointment_reminders
+        transaction.on_commit(lambda: handle_payment_event("payment_verified", payment.id))
+        transaction.on_commit(lambda: schedule_appointment_reminders(appointment, schedule_version=1))
 
         return payment
 
@@ -534,6 +542,10 @@ def process_razorpay_webhook(
                     data={"event_type": event_type, "order_id": order_id, "payment_id": gateway_payment_id},
                 )
 
+                from apps.notifications.services import handle_payment_event, schedule_appointment_reminders
+                transaction.on_commit(lambda: handle_payment_event("payment_verified", payment.id))
+                transaction.on_commit(lambda: schedule_appointment_reminders(appointment, schedule_version=1))
+
         elif event_type == "payment.failed":
             # Avoid regressing a PAID transaction to FAILED (safe state machine against out-of-order events)
             if payment.status == PaymentStatus.PAID:
@@ -554,6 +566,16 @@ def process_razorpay_webhook(
                     appointment=payment.appointment,
                     event_type=PaymentAuditAction.PAYMENT_FAILED,
                     data={"error_code": error_code, "error_description": error_desc},
+                )
+
+                from apps.notifications.services import handle_payment_event
+                transaction.on_commit(
+                    lambda: handle_payment_event(
+                        "payment_failed",
+                        payment.id,
+                        error_code=error_code,
+                        error_desc=error_desc,
+                    )
                 )
 
         webhook_event.status = WebhookProcessingStatus.PROCESSED

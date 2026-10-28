@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ subject|default:"EazyDoc Notification" }}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #1e293b;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      background-color: #f8fafc;
+      padding: 32px 16px;
+    }
+    .container {
+      max-width: 580px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+    .header {
+      background: #0f172a;
+      padding: 24px 32px;
+      text-align: left;
+    }
+    .brand {
+      color: #ffffff;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      text-decoration: none;
+    }
+    .brand span {
+      color: #0284c7;
+    }
+    .content {
+      padding: 32px;
+    }
+    .title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #0f172a;
+      margin-top: 0;
+      margin-bottom: 16px;
+    }
+    .message {
+      font-size: 15px;
+      line-height: 1.6;
+      color: #334155;
+      margin-bottom: 24px;
+    }
+    .details-box {
+      background: #f1f5f9;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .btn {
+      display: inline-block;
+      background-color: #0284c7;
+      color: #ffffff !important;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+    }
+    .footer {
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+      padding: 20px 32px;
+      text-align: center;
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.5;
+    }
+    .footer a {
+      color: #0284c7;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <div class="header">
+        <a href="{{ site_url|default:'#' }}" class="brand">Eazy<span>Doc</span></a>
+      </div>
+      <div class="content">
+        <h2 class="title">{{ title|escape }}</h2>
+        <p class="message">{{ message|escape }}</p>
+        {% block email_content %}{% endblock %}
+        {% if action_url %}
+          <div style="margin-top: 24px;">
+            <a href="{{ action_url|escape }}" class="btn">View in EazyDoc</a>
+          </div>
+        {% endif %}
+      </div>
+      <div class="footer">
+        <p>This is an automated operational notification regarding your EazyDoc account.<br>
+        To ensure patient privacy, sensitive medical records are never included in emails.</p>
+        <p>&copy; {{ current_year|default:"2026" }} EazyDoc SaaS. All rights reserved.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

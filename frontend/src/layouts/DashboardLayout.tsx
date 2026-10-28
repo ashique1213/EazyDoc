@@ -13,10 +13,12 @@ import {
   Users,
   CreditCard,
   Percent,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuthStore, useLogout } from "@/features/auth";
+import { NotificationBell } from "@/features/notifications";
 
 interface DashboardLayoutProps {
   roleTitle?: string;
@@ -254,6 +256,13 @@ export function DashboardLayout({ roleTitle = "Dashboard" }: DashboardLayoutProp
               <span>Overview</span>
             </div>
           )}
+          <Link
+            to="/notifications"
+            className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          >
+            <Bell className="h-4 w-4 text-primary" />
+            <span>Notifications</span>
+          </Link>
           <div className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent cursor-pointer transition-colors">
             <UserCircle className="h-4 w-4" />
             <span>Profile</span>
@@ -321,6 +330,7 @@ export function DashboardLayout({ roleTitle = "Dashboard" }: DashboardLayoutProp
             <span className="text-sm font-semibold text-foreground">{roleTitle}</span>
           </div>
           <div className="flex items-center space-x-3">
+            <NotificationBell />
             {user && (
               <div className="hidden sm:flex flex-col text-right">
                 <span className="text-xs font-semibold text-foreground">

@@ -1,0 +1,19 @@
+EazyDoc - {{ title }}
+
+{{ message }}
+
+Booking Reference: {{ booking_reference }}
+Clinic: {{ clinic_name }}
+Doctor: Dr. {{ doctor_name }}
+Scheduled Time: {{ scheduled_time }} ({{ clinic_timezone }})
+
+Please plan to arrive 10-15 minutes prior to your scheduled time.
+
+{% if action_url %}
+Access details securely: {{ action_url }}
+{% endif %}
+
+---
+This is an automated operational notification regarding your EazyDoc account.
+To ensure patient privacy, sensitive medical records are never included in emails.
+© {{ current_year|default:"2026" }} EazyDoc SaaS.

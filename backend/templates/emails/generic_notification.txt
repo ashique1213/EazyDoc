@@ -1,0 +1,12 @@
+EazyDoc - {{ title }}
+
+{{ message }}
+
+{% if action_url %}
+Access your account: {{ action_url }}
+{% endif %}
+
+---
+This is an automated operational notification regarding your EazyDoc account.
+To ensure patient privacy, sensitive medical records are never included in emails.
+© {{ current_year|default:"2026" }} EazyDoc SaaS.

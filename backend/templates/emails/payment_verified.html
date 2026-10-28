@@ -1,0 +1,13 @@
+{% extends "emails/base_email.html" %}
+
+{% block email_content %}
+<div class="details-box">
+  <p style="margin: 0 0 8px 0;"><strong>Payment Status:</strong> Successfully Verified</p>
+  <p style="margin: 0 0 8px 0;"><strong>Amount Paid:</strong> {{ currency|default:"INR" }} {{ amount|escape }}</p>
+  <p style="margin: 0 0 8px 0;"><strong>Payment Order ID:</strong> {{ order_id|escape }}</p>
+  {% if booking_reference %}
+    <p style="margin: 0;"><strong>Booking Reference:</strong> {{ booking_reference|escape }}</p>
+  {% endif %}
+</div>
+<p style="font-size: 14px; color: #64748b; margin-top: 12px;">Your appointment is now fully confirmed.</p>
+{% endblock %}

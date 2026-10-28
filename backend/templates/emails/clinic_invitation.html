@@ -1,0 +1,15 @@
+{% extends "emails/base_email.html" %}
+
+{% block email_content %}
+<div class="details-box">
+  <p style="margin: 0 0 8px 0;"><strong>Clinic:</strong> {{ clinic_name|escape }}</p>
+  {% if clinic_address %}
+    <p style="margin: 0 0 8px 0;"><strong>Location:</strong> {{ clinic_address|escape }}</p>
+  {% endif %}
+  {% if invited_by_name %}
+    <p style="margin: 0 0 8px 0;"><strong>Invited By:</strong> {{ invited_by_name|escape }}</p>
+  {% endif %}
+  <p style="margin: 0;"><strong>Status:</strong> Awaiting Your Response</p>
+</div>
+<p style="font-size: 14px; color: #64748b; margin-top: 12px;">You can review and accept or reject this invitation in your Doctor portal.</p>
+{% endblock %}

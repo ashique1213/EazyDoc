@@ -1,0 +1,23 @@
+EazyDoc - {{ title }}
+
+{{ message }}
+
+Clinic: {{ clinic_name }}
+{% if clinic_address %}
+Location: {{ clinic_address }}
+{% endif %}
+{% if invited_by_name %}
+Invited By: {{ invited_by_name }}
+{% endif %}
+Status: Awaiting Your Response
+
+You can review and accept or reject this invitation in your Doctor portal.
+
+{% if action_url %}
+Respond to invitation: {{ action_url }}
+{% endif %}
+
+---
+This is an automated operational notification regarding your EazyDoc account.
+To ensure patient privacy, sensitive medical records are never included in emails.
+© {{ current_year|default:"2026" }} EazyDoc SaaS.

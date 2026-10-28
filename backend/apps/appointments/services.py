@@ -44,6 +44,17 @@ def dispatch_appointment_event(event_name: str, appointment_id: Any, **kwargs):
         appointment_id,
         kwargs,
     )
+    try:
+        from apps.notifications.services import handle_appointment_event
+        handle_appointment_event(event_name, appointment_id, **kwargs)
+    except Exception as exc:
+        logger.error(
+            "Failed to handle notification dispatch for appointment event '%s' (%s): %s",
+            event_name,
+            appointment_id,
+            str(exc),
+            exc_info=True,
+        )
 
 
 def generate_booking_reference() -> str:
@@ -858,6 +869,10 @@ def complete_appointment(appointment: Appointment, user: User) -> Appointment:
             reason=_("Consultation completed."),
         )
 
+        transaction.on_commit(
+            lambda: dispatch_appointment_event("appointment_completed", locked_appt.id)
+        )
+
         return locked_appt
 
 
@@ -881,6 +896,9 @@ def mark_no_show(appointment: Appointment, user: User) -> Appointment:
             actor_role=getattr(user, "role", ""),
             reason=_("Patient did not show up for scheduled consultation."),
         )
+
+        from apps.notifications.services import invalidate_appointment_reminders
+        transaction.on_commit(lambda: invalidate_appointment_reminders(locked_appt))
 
         return locked_appt
 

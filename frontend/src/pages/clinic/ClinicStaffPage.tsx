@@ -168,8 +168,9 @@ export function ClinicStaffPage() {
       await createStaffMutation.mutateAsync(payload);
       setIsAddOpen(false);
       refetch();
-    } catch (err: any) {
-      setFormError(err.response?.data?.detail || err.response?.data?.message || "Failed to create staff member.");
+    } catch (err: unknown) {
+      const errorMsg = (err as { response?: { data?: { detail?: string; message?: string } } })?.response?.data;
+      setFormError(errorMsg?.detail || errorMsg?.message || "Failed to create staff member.");
     }
   };
 
@@ -189,8 +190,9 @@ export function ClinicStaffPage() {
       });
       setEditingStaff(null);
       refetch();
-    } catch (err: any) {
-      setFormError(err.response?.data?.detail || err.response?.data?.message || "Failed to update staff member.");
+    } catch (err: unknown) {
+      const errorMsg = (err as { response?: { data?: { detail?: string; message?: string } } })?.response?.data;
+      setFormError(errorMsg?.detail || errorMsg?.message || "Failed to update staff member.");
     }
   };
 
@@ -200,8 +202,9 @@ export function ClinicStaffPage() {
       await deleteStaffMutation.mutateAsync(deletingStaff.id);
       setDeletingStaff(null);
       refetch();
-    } catch (err: any) {
-      alert(err.response?.data?.detail || "Failed to revoke staff access.");
+    } catch (err: unknown) {
+      const errorMsg = (err as { response?: { data?: { detail?: string; message?: string } } })?.response?.data;
+      alert(errorMsg?.detail || "Failed to revoke staff access.");
     }
   };
 

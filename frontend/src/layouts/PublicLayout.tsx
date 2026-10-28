@@ -2,6 +2,7 @@ import { Link, Outlet } from "react-router-dom";
 import { Stethoscope, ShieldCheck, UserCircle, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuthStore, useLogout, getRoleRedirectPath } from "@/features/auth";
+import { NotificationBell } from "@/features/notifications";
 
 export function PublicLayout() {
   const { user, isAuthenticated } = useAuthStore();
@@ -49,6 +50,7 @@ export function PublicLayout() {
           <div className="flex items-center space-x-3">
             {isAuthenticated && user ? (
               <div className="flex items-center space-x-3">
+                <NotificationBell />
                 <Link to={dashboardPath}>
                   <Button size="sm" className="gap-2">
                     <UserCircle className="h-4 w-4" />

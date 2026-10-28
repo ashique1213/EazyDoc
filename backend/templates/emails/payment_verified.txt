@@ -1,0 +1,21 @@
+EazyDoc - {{ title }}
+
+{{ message }}
+
+Payment Status: Successfully Verified
+Amount Paid: {{ currency|default:"INR" }} {{ amount }}
+Payment Order ID: {{ order_id }}
+{% if booking_reference %}
+Booking Reference: {{ booking_reference }}
+{% endif %}
+
+Your appointment is now fully confirmed.
+
+{% if action_url %}
+View appointment: {{ action_url }}
+{% endif %}
+
+---
+This is an automated operational notification regarding your EazyDoc account.
+To ensure patient privacy, sensitive medical records are never included in emails.
+© {{ current_year|default:"2026" }} EazyDoc SaaS.

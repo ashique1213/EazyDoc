@@ -642,6 +642,11 @@ class DoctorAcceptInvitationView(APIView):
             },
         )
 
+        assoc_id = association.id
+        from apps.notifications.services import handle_clinic_doctor_event
+        from django.db import transaction
+        transaction.on_commit(lambda: handle_clinic_doctor_event("clinic_invitation_accepted", assoc_id))
+
         return Response(
             {
                 "success": True,
@@ -715,6 +720,11 @@ class DoctorRejectInvitationView(APIView):
                 "clinic_name": association.clinic.name,
             },
         )
+
+        assoc_id = association.id
+        from apps.notifications.services import handle_clinic_doctor_event
+        from django.db import transaction
+        transaction.on_commit(lambda: handle_clinic_doctor_event("clinic_invitation_rejected", assoc_id))
 
         return Response(
             {

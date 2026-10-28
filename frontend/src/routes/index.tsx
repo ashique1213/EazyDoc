@@ -47,6 +47,7 @@ import PublicClinicDetailPage from "@/pages/discovery/PublicClinicDetailPage";
 
 import AppointmentDetailPage from "@/pages/appointments/AppointmentDetailPage";
 import PatientAppointmentsPage from "@/pages/appointments/PatientAppointmentsPage";
+import NotificationsPage from "@/pages/NotificationsPage";
 
 export const router = createBrowserRouter([
   {
@@ -82,6 +83,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={["PATIENT"]}>
             <PatientAppointmentsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "notifications",
+        element: (
+          <ProtectedRoute>
+            <NotificationsPage />
           </ProtectedRoute>
         ),
       },

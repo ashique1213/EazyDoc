@@ -490,6 +490,10 @@ class ClinicDoctorInvitationView(APIView):
                     },
                 )
 
+        assoc_id = association.id
+        from apps.notifications.services import handle_clinic_doctor_event
+        transaction.on_commit(lambda: handle_clinic_doctor_event("clinic_invitation_sent", assoc_id))
+
         return Response(
             {
                 "success": True,

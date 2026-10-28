@@ -253,3 +253,27 @@ RAZORPAY_CURRENCY = env("RAZORPAY_CURRENCY", default="INR")
 # Platform Commission & Reservation Settings
 PLATFORM_DEFAULT_COMMISSION_RATE = Decimal(str(env("PLATFORM_DEFAULT_COMMISSION_RATE", default="5.00")))
 PAYMENT_RESERVATION_TIMEOUT_MINUTES = env.int("PAYMENT_RESERVATION_TIMEOUT_MINUTES", default=15)
+
+# Email Settings
+EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = env("EMAIL_HOST", default="smtp.gmail.com")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="EazyDoc Healthcare <noreply@eazydoc.com>")
+
+# Appointment Reminder Windows Configuration
+# Offsets in hours before appointment start time in the clinic's local timezone
+NOTIFICATION_REMINDER_WINDOWS = [
+    {"type": "REMINDER_24H", "offset_hours": 24, "label": "24 hours before"},
+    {"type": "REMINDER_2H", "offset_hours": 2, "label": "2 hours before"},
+]
+
+# Celery Beat Periodic Task Schedules
+CELERY_BEAT_SCHEDULE = {
+    "process-appointment-reminders": {
+        "task": "apps.notifications.tasks.process_due_appointment_reminders",
+        "schedule": 60.0,  # Run every 60 seconds
+    },
+}

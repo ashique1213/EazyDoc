@@ -467,7 +467,7 @@ export function ClinicAppointmentsPage() {
               </h4>
               {detailData.history && detailData.history.length > 0 ? (
                 <div className="space-y-2 border rounded-lg p-3 max-h-48 overflow-y-auto">
-                  {detailData.history.map((h: any) => (
+                  {detailData.history.map((h) => (
                     <div key={h.id} className="text-xs border-b last:border-b-0 pb-1.5 last:pb-0">
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-primary">{h.event_type}</span>

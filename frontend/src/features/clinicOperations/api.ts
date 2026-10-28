@@ -11,6 +11,7 @@ import type {
   ClinicStaffUpdatePayload,
   ClinicTrendsResponse,
   PaginatedPaymentsResponse,
+  AppointmentHistoryItem,
 } from "./types";
 import type { Clinic, ClinicUpdatePayload } from "@/features/clinics";
 import type { Appointment } from "@/features/appointments";
@@ -151,7 +152,7 @@ export const getClinicAppointments = async (
 export const getClinicAppointmentDetail = async (
   clinicId: string,
   appointmentId: string
-): Promise<Appointment & { history?: any[] }> => {
+): Promise<Appointment & { history?: AppointmentHistoryItem[] }> => {
   const response = await apiClient.get(`/clinics/${clinicId}/appointments/${appointmentId}/`);
   return response.data.data;
 };

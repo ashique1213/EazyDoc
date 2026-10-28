@@ -265,3 +265,13 @@ export interface PaginatedPaymentsResponse {
   has_previous: boolean;
   results: ClinicPaymentTransaction[];
 }
+
+export interface AppointmentHistoryItem {
+  id: string;
+  event_type: string;
+  created_at: string;
+  actor_email?: string;
+  actor?: { first_name?: string; last_name?: string; email?: string };
+  actor_role?: string;
+  reason?: string;
+}

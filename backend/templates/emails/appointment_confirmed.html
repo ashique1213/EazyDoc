@@ -1,0 +1,10 @@
+{% extends "emails/base_email.html" %}
+
+{% block email_content %}
+<div class="details-box">
+  <p style="margin: 0 0 8px 0;"><strong>Booking Reference:</strong> {{ booking_reference|escape }}</p>
+  <p style="margin: 0 0 8px 0;"><strong>Clinic:</strong> {{ clinic_name|escape }}</p>
+  <p style="margin: 0 0 8px 0;"><strong>Doctor:</strong> Dr. {{ doctor_name|escape }}</p>
+  <p style="margin: 0;"><strong>Scheduled Time:</strong> {{ scheduled_time|escape }} ({{ clinic_timezone|escape }})</p>
+</div>
+{% endblock %}
