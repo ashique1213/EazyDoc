@@ -34,9 +34,11 @@ class CanAccessAppointment(BasePermission):
         if user.role == UserRole.CLINIC_OWNER:
             return obj.clinic.owner_id == user.id
 
-        # Staff access: if staff belongs to the clinic
+        # Staff access: if staff belongs to the clinic and has VIEW_APPOINTMENTS permission
         if user.role == UserRole.STAFF:
-            # Check clinic ownership or affiliation
-            return obj.clinic.owner_id == user.id
+            staff_profile = getattr(user, "staff_profile", None)
+            if staff_profile and staff_profile.is_active and staff_profile.clinic_id == obj.clinic_id:
+                return staff_profile.has_permission("VIEW_APPOINTMENTS")
+            return False
 
         return False

@@ -334,7 +334,12 @@ class AppointmentCancelView(APIView):
             if appointment.clinic.owner_id != user.id:
                 raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
         elif user.role == UserRole.STAFF:
-            if not hasattr(user, "staff_profile") or user.staff_profile.clinic_id != appointment.clinic_id:
+            if (
+                not hasattr(user, "staff_profile")
+                or not user.staff_profile.is_active
+                or user.staff_profile.clinic_id != appointment.clinic_id
+                or not user.staff_profile.has_permission(ClinicStaffPermission.MANAGE_APPOINTMENTS)
+            ):
                 raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
         elif user.role == UserRole.DOCTOR:
             if appointment.doctor.user_id != user.id:
@@ -394,7 +399,12 @@ class AppointmentRescheduleView(APIView):
             if appointment.clinic.owner_id != user.id:
                 raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
         elif user.role == UserRole.STAFF:
-            if not hasattr(user, "staff_profile") or user.staff_profile.clinic_id != appointment.clinic_id:
+            if (
+                not hasattr(user, "staff_profile")
+                or not user.staff_profile.is_active
+                or user.staff_profile.clinic_id != appointment.clinic_id
+                or not user.staff_profile.has_permission(ClinicStaffPermission.MANAGE_APPOINTMENTS)
+            ):
                 raise PermissionDenied("You do not have permission to manage appointments for this clinic.")
         elif user.role != UserRole.SUPER_ADMIN:
             raise PermissionDenied("You do not have permission to reschedule this appointment.")
@@ -453,7 +463,12 @@ class AppointmentHistoryListView(APIView):
             if appointment.clinic.owner_id != user.id:
                 raise PermissionDenied("You do not have permission to view appointments for this clinic.")
         elif user.role == UserRole.STAFF:
-            if not hasattr(user, "staff_profile") or user.staff_profile.clinic_id != appointment.clinic_id:
+            if (
+                not hasattr(user, "staff_profile")
+                or not user.staff_profile.is_active
+                or user.staff_profile.clinic_id != appointment.clinic_id
+                or not user.staff_profile.has_permission(ClinicStaffPermission.VIEW_APPOINTMENTS)
+            ):
                 raise PermissionDenied("You do not have permission to view appointments for this clinic.")
         elif user.role == UserRole.DOCTOR:
             if appointment.doctor.user_id != user.id:

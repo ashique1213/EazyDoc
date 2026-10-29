@@ -38,5 +38,6 @@ if "test" in sys.argv or FALLBACK_IN_MEMORY_CHANNELS:
 # Internal IPs for debug toolbar if enabled
 INTERNAL_IPS = ["127.0.0.1", "localhost"]
 
-# Email backend: console by default in dev
-EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
+# Email backend: console by default in dev (preserve locmem for tests)
+if "test" not in sys.argv and "pytest" not in sys.modules:
+    EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")

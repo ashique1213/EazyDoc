@@ -111,3 +111,22 @@ def clear_auth_cookies(response) -> None:
 
     response.delete_cookie(key=access_cookie_name, path="/")
     response.delete_cookie(key=refresh_cookie_name, path=refresh_path)
+
+
+try:
+    from drf_spectacular.extensions import OpenApiAuthenticationExtension
+
+    class CookieJWTScheme(OpenApiAuthenticationExtension):
+        target_class = "apps.accounts.authentication.CookieJWTAuthentication"
+        name = "CookieJWTAuth"
+
+        def get_security_definition(self, auto_schema):
+            return {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "Dual-transport JWT authentication via Authorization Bearer header or HttpOnly access_token cookie.",
+            }
+except ImportError:
+    pass
+
