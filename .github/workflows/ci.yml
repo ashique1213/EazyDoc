@@ -1,10 +1,21 @@
-name: Continuous Integration & Production Verification
+name: Continuous Integration & Staging Deployment
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      deploy_to_staging:
+        description: 'Deploy to Staging Environment after checks'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   backend-checks-and-tests:
@@ -25,12 +36,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements/development.txt
 
-      - name: Run Django system check
+      - name: Run Django system check (Development)
         working-directory: ./backend
         env:
           DJANGO_SETTINGS_MODULE: config.settings.development
           SECRET_KEY: ci-test-secret-key-not-for-production
           USE_SQLITE: "True"
+        run: |
+          python manage.py check
+
+      - name: Run Django system check (Staging)
+        working-directory: ./backend
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.staging
+          SECRET_KEY: ci-test-staging-secret-key-min-50-characters-required-for-ci
+          USE_SQLITE: "True"
+          DATABASE_URL: sqlite:////tmp/test_staging_ci.db
         run: |
           python manage.py check
 
@@ -78,11 +99,15 @@ jobs:
 
       - name: Run Production TypeScript & Vite Build
         working-directory: ./frontend
+        env:
+          VITE_API_BASE_URL: /api/v1
+          VITE_APP_ENV: staging
         run: |
           npm run build
 
   container-build-verification:
-    name: Docker Production Images Build Verification
+    name: Docker Images Build Verification
+    needs: [backend-checks-and-tests, frontend-lint-and-build]
     runs-on: ubuntu-latest
     steps:
       - name: Check out source code
@@ -97,7 +122,7 @@ jobs:
           context: ./backend
           file: ./backend/Dockerfile.prod
           push: false
-          tags: eazydoc-backend:ci-test
+          tags: eazydoc-backend:staging-verify
 
       - name: Build Frontend Production Docker Image
         uses: docker/build-push-action@v5
@@ -105,5 +130,37 @@ jobs:
           context: ./frontend
           file: ./frontend/Dockerfile.prod
           push: false
-          tags: eazydoc-frontend:ci-test
+          tags: eazydoc-frontend:staging-verify
 
+  deploy-to-staging:
+    name: Deploy to Staging Environment
+    needs: [container-build-verification]
+    if: github.ref == 'refs/heads/develop' || github.event.inputs.deploy_to_staging == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.eazydoc.internal
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Staging Server via SSH
+        if: env.STAGING_HOST != ''
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+        run: |
+          echo "Initiating automated deployment to Staging ($STAGING_HOST)..."
+          # SSH Deployment script executes backup, git pull, migrate, and docker compose restart
+          mkdir -p ~/.ssh
+          echo "$STAGING_SSH_KEY" > ~/.ssh/staging_key
+          chmod 600 ~/.ssh/staging_key
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/staging_key "$STAGING_USER@$STAGING_HOST" "
+            cd /opt/eazydoc && \
+            ./scripts/backup_db.sh && \
+            git pull origin develop && \
+            docker compose -f docker-compose.staging.yml build && \
+            docker compose -f docker-compose.staging.yml up -d
+          "
+          echo "Staging deployment completed successfully."
