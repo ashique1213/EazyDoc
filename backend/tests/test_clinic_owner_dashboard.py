@@ -205,8 +205,8 @@ class ClinicOwnerDashboardAndOperationsTests(APITestCase):
             doctor=self.doctor1,
             doctor_clinic=self.doc_clinic1,
             clinic=self.clinic1,
-            start_at=self.now - timedelta(days=2),
-            end_at=self.now - timedelta(days=2, minutes=-30),
+            start_at=self.now - timedelta(minutes=30),
+            end_at=self.now,
             status=AppointmentStatus.COMPLETED,
             consultation_fee=Decimal("500.00"),
         )
@@ -218,7 +218,7 @@ class ClinicOwnerDashboardAndOperationsTests(APITestCase):
             gateway_order_id="order_c1_001",
             amount=Decimal("500.00"),
             status=PaymentStatus.PAID,
-            paid_at=self.now - timedelta(days=2),
+            paid_at=self.now,
         )
         CommissionRecord.objects.create(
             payment=payment1,
@@ -238,8 +238,8 @@ class ClinicOwnerDashboardAndOperationsTests(APITestCase):
             doctor=self.doctor1,
             doctor_clinic=self.doc_clinic2,
             clinic=self.clinic2,
-            start_at=self.now - timedelta(days=1),
-            end_at=self.now - timedelta(days=1, minutes=-45),
+            start_at=self.now - timedelta(minutes=45),
+            end_at=self.now - timedelta(minutes=15),
             status=AppointmentStatus.COMPLETED,
             consultation_fee=Decimal("800.00"),
         )
@@ -250,7 +250,7 @@ class ClinicOwnerDashboardAndOperationsTests(APITestCase):
             gateway_order_id="order_c2_001",
             amount=Decimal("800.00"),
             status=PaymentStatus.PAID,
-            paid_at=self.now - timedelta(days=1),
+            paid_at=self.now,
         )
         CommissionRecord.objects.create(
             payment=payment_c2,
