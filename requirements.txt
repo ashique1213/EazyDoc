@@ -1,0 +1,3 @@
+# EazyDoc root requirements file
+# References development requirements for local development and CI caching
+-r backend/requirements/development.txt

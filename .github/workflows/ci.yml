@@ -30,6 +30,9 @@ jobs:
         with:
           python-version: "3.13"
           cache: "pip"
+          cache-dependency-path: |
+            backend/requirements/base.txt
+            backend/requirements/development.txt
 
       - name: Install backend dependencies
         run: |
@@ -40,7 +43,7 @@ jobs:
         working-directory: ./backend
         env:
           DJANGO_SETTINGS_MODULE: config.settings.development
-          SECRET_KEY: ci-test-secret-key-not-for-production
+          SECRET_KEY: ci-test-development-secret-key-min-50-characters-required-for-ci
           USE_SQLITE: "True"
         run: |
           python manage.py check
@@ -51,7 +54,7 @@ jobs:
           DJANGO_SETTINGS_MODULE: config.settings.staging
           SECRET_KEY: ci-test-staging-secret-key-min-50-characters-required-for-ci
           USE_SQLITE: "True"
-          DATABASE_URL: sqlite:////tmp/test_staging_ci.db
+          DATABASE_URL: sqlite:///test_staging_ci.db
         run: |
           python manage.py check
 
@@ -59,7 +62,7 @@ jobs:
         working-directory: ./backend
         env:
           DJANGO_SETTINGS_MODULE: config.settings.development
-          SECRET_KEY: ci-test-secret-key-not-for-production
+          SECRET_KEY: ci-test-development-secret-key-min-50-characters-required-for-ci
           USE_SQLITE: "True"
         run: |
           python manage.py makemigrations --check --dry-run
@@ -68,7 +71,7 @@ jobs:
         working-directory: ./backend
         env:
           DJANGO_SETTINGS_MODULE: config.settings.development
-          SECRET_KEY: ci-test-secret-key-not-for-production
+          SECRET_KEY: ci-test-development-secret-key-min-50-characters-required-for-ci
           USE_SQLITE: "True"
         run: |
           python manage.py test
