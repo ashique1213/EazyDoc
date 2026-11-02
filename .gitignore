@@ -46,10 +46,16 @@ frontend/build/
 
 # Environment Variables & Secrets
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.*.example
 *.pem
 *.key
+*.crt
+docker/nginx/certs/
+backups/
+*.sql
+*.sql.gz
 
 # IDEs & OS
 .vscode/
