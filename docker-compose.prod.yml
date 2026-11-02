@@ -48,8 +48,10 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
       - RUN_MIGRATIONS=true
+      - COLLECT_STATIC=true
     volumes:
       - media_data:/app/media
+      - staticfiles_data:/app/staticfiles
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health/ || exit 1"]
       interval: 30s
@@ -132,6 +134,7 @@ services:
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - media_data:/app/media:ro
+      - staticfiles_data:/app/staticfiles:ro
     depends_on:
       - backend
       - frontend
@@ -142,6 +145,7 @@ volumes:
   postgres_data:
   redis_data:
   media_data:
+  staticfiles_data:
 
 networks:
   internal_network:

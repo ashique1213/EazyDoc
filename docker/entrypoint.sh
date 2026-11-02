@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-# Wait for PostgreSQL database using Python socket check
+# Wait for PostgreSQL database using native Python socket probe
 echo "Waiting for PostgreSQL database at ${DATABASE_HOST:-localhost}:${DATABASE_PORT:-5432}..."
 python -c "
 import socket, sys, time, os
@@ -22,10 +22,16 @@ while True:
 "
 echo "PostgreSQL is ready!"
 
-# Only run migrations when explicitly requested or starting the primary web backend
+# Execute database migrations if requested
 if [ "$RUN_MIGRATIONS" = "true" ]; then
   echo "Running database migrations..."
   python manage.py migrate --noinput
+fi
+
+# Collect static files if requested
+if [ "$COLLECT_STATIC" = "true" ]; then
+  echo "Collecting static files..."
+  python manage.py collectstatic --noinput
 fi
 
 exec "$@"
