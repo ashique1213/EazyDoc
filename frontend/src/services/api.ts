@@ -101,6 +101,14 @@ apiClient.interceptors.response.use(
       }
     }
 
+    // Attach correlation/request ID to the error object for tracing & ErrorBoundary
+    const requestId =
+      (error.response?.headers?.["x-request-id"] as string) ||
+      (error.response?.data as { request_id?: string })?.request_id;
+    if (requestId) {
+      (error as unknown as { requestId?: string }).requestId = requestId;
+    }
+
     return Promise.reject(error);
   }
 );
@@ -108,6 +116,14 @@ apiClient.interceptors.response.use(
 export const systemApi = {
   checkHealth: async (): Promise<HealthResponse> => {
     const response = await apiClient.get<HealthResponse>("/health/");
+    return response.data;
+  },
+  checkLiveness: async (): Promise<{ status: string; service: string }> => {
+    const response = await apiClient.get("/health/live/");
+    return response.data;
+  },
+  checkReadiness: async (): Promise<{ status: string; checks: Record<string, string> }> => {
+    const response = await apiClient.get("/health/ready/");
     return response.data;
   },
 };
