@@ -5,11 +5,13 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
-from .views import HealthCheckView
+from .views import HealthCheckView, LivenessHealthCheckView, ReadinessHealthCheckView
 
 api_v1_patterns = [
-    # Health check
+    # Health checks
     path("health/", HealthCheckView.as_view(), name="health-check"),
+    path("health/live/", LivenessHealthCheckView.as_view(), name="health-live"),
+    path("health/ready/", ReadinessHealthCheckView.as_view(), name="health-ready"),
     # Domain module routing foundations
     path("auth/", include("apps.accounts.urls", namespace="accounts")),
     path("clinics/", include("apps.clinics.urls", namespace="clinics")),
@@ -38,6 +40,11 @@ api_v1_patterns = [
 ]
 
 urlpatterns = [
+    # Lightweight Health Probes for Load Balancers & Orchestrators
+    path("health/live/", LivenessHealthCheckView.as_view(), name="root-health-live"),
+    path("health/ready/", ReadinessHealthCheckView.as_view(), name="root-health-ready"),
+    path("api/health/live/", LivenessHealthCheckView.as_view(), name="api-health-live"),
+    path("api/health/ready/", ReadinessHealthCheckView.as_view(), name="api-health-ready"),
     # Django Admin
     path("admin/", admin.site.urls),
     # OpenAPI Schema & Interactive Documentation
