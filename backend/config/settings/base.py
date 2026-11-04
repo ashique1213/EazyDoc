@@ -64,6 +64,7 @@ LOCAL_APPS = [
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
+    "config.middleware.RequestIDMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -131,6 +132,7 @@ CORS_ALLOWED_ORIGINS = env.list(
     default=["http://localhost:5173", "http://127.0.0.1:5173"],
 )
 CORS_ALLOW_CREDENTIALS = True
+CORS_EXPOSE_HEADERS = ["X-Request-ID"]
 
 CSRF_TRUSTED_ORIGINS = env.list(
     "CSRF_TRUSTED_ORIGINS",
@@ -197,6 +199,10 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TIME_LIMIT = 300  # 5 minutes maximum hard execution time
+CELERY_TASK_SOFT_TIME_LIMIT = 240  # 4 minutes soft execution time
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 
 # Django Channels Layer (Redis)
 CHANNEL_LAYERS = {
@@ -208,24 +214,39 @@ CHANNEL_LAYERS = {
     },
 }
 
-# Structured Logging
+# Structured Logging Configuration
+LOG_FORMAT = env("LOG_FORMAT", default="verbose")
+LOG_LEVEL = env("LOG_LEVEL", default="INFO")
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    "filters": {
+        "request_id": {
+            "()": "config.logging.RequestIDFilter",
+        },
+        "sensitive_data": {
+            "()": "config.logging.SensitiveDataFilter",
+        },
+    },
     "formatters": {
+        "json": {
+            "()": "config.logging.StructuredJSONFormatter",
+        },
         "verbose": {
-            "format": "[{asctime}] [{levelname}] [{name}:{lineno}] {message}",
+            "format": "[{asctime}] [{levelname}] [{request_id}] [{name}:{lineno}] {message}",
             "style": "{",
         },
         "simple": {
-            "format": "[{levelname}] {message}",
+            "format": "[{levelname}] [{request_id}] {message}",
             "style": "{",
         },
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "formatter": "verbose",
+            "formatter": LOG_FORMAT,
+            "filters": ["request_id", "sensitive_data"],
         },
     },
     "loggers": {
@@ -234,14 +255,29 @@ LOGGING = {
             "level": "INFO",
             "propagate": False,
         },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "django.security": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
         "apps": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+        "celery": {
             "handlers": ["console"],
             "level": "INFO",
             "propagate": False,
         },
         "security": {
             "handlers": ["console"],
-            "level": "WARNING",
+            "level": "INFO",
             "propagate": False,
         },
     },

@@ -100,6 +100,10 @@ if RAZORPAY_KEY_ID.startswith("rzp_live_"):
         "Staging environments must exclusively use Razorpay test keys (rzp_test_*)."
     )
 
+# Logging format defaults to JSON in staging
+LOG_FORMAT = env("LOG_FORMAT", default="json")
+LOGGING["handlers"]["console"]["formatter"] = LOG_FORMAT
+
 # Sentry Monitoring Configuration for Staging
 SENTRY_DSN = env("SENTRY_DSN", default="")
 if SENTRY_DSN:
@@ -107,6 +111,18 @@ if SENTRY_DSN:
     from sentry_sdk.integrations.celery import CeleryIntegration
     from sentry_sdk.integrations.django import DjangoIntegration
     from sentry_sdk.integrations.redis import RedisIntegration
+
+    def before_send_staging(event, hint):
+        """Scrub authentication headers, cookies, and patient-sensitive payloads before transmission."""
+        if "request" in event:
+            headers = event["request"].get("headers", {})
+            for h in ("authorization", "cookie", "x-csrftoken"):
+                if h in headers:
+                    headers[h] = "[REDACTED]"
+            if "data" in event["request"] and isinstance(event["request"]["data"], dict):
+                from config.logging import redact_sensitive_data
+                event["request"]["data"] = redact_sensitive_data(event["request"]["data"])
+        return event
 
     sentry_sdk.init(
         dsn=SENTRY_DSN,
@@ -118,5 +134,6 @@ if SENTRY_DSN:
         ],
         traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.2),
         send_default_pii=False,
+        before_send=before_send_staging,
     )
 
