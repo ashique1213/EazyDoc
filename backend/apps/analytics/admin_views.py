@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 import pytz
 from django.conf import settings
@@ -382,6 +382,173 @@ class AdminFinancialSummaryView(APIView):
                         "actual_payouts": "0.00",
                     },
                     "daily_trend": daily_trend,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminSystemOperationsMonitoringView(APIView):
+    """
+    Super Admin endpoint exposing technical health, queue backlog,
+    operational incident signals, and business-level health metrics.
+    Strictly restricted to Super Administrators.
+    """
+
+    permission_classes = [IsSuperAdmin]
+
+    @extend_schema(
+        summary="Super Admin Operational System Metrics",
+        description="Returns real-time technical health (DB, Redis, Celery), queue backlogs, webhook failure metrics, and recent business activity.",
+        responses={200: dict},
+        tags=["Admin Dashboard"],
+    )
+    def get(self, request):
+        import time
+        from pathlib import Path
+        from django.db import connection
+        from apps.notifications.models import (
+            AppointmentReminderSchedule,
+            NotificationDelivery,
+            DeliveryStatus,
+        )
+        from apps.payments.models import (
+            PaymentWebhookEvent,
+            WebhookProcessingStatus,
+        )
+
+        now = timezone.now()
+        last_24h = now - timedelta(hours=24)
+
+        # 1. Backing Infrastructure Health
+        db_health = {"status": "ok", "latency_ms": 0.0}
+        t0 = time.monotonic()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1;")
+                cursor.fetchone()
+            db_health["latency_ms"] = round((time.monotonic() - t0) * 1000, 2)
+        except Exception as e:
+            db_health["status"] = "error"
+            db_health["error"] = str(e)[:100]
+
+        redis_health = {"status": "ok", "latency_ms": 0.0}
+        t0 = time.monotonic()
+        try:
+            import redis
+            redis_client = redis.from_url(settings.REDIS_URL, socket_connect_timeout=0.5)
+            redis_client.ping()
+            redis_health["latency_ms"] = round((time.monotonic() - t0) * 1000, 2)
+        except Exception as e:
+            redis_health["status"] = "unavailable"
+            redis_health["error"] = str(e)[:100]
+
+        # Celery Worker Probe
+        celery_health = {"status": "active", "active_workers": []}
+        try:
+            from config.celery import app as celery_app
+            insp = celery_app.control.inspect(timeout=0.5)
+            ping_res = insp.ping() if insp else None
+            if ping_res:
+                celery_health["active_workers"] = list(ping_res.keys())
+            else:
+                celery_health["status"] = "no_workers_detected"
+        except Exception:
+            celery_health["status"] = "broker_unreachable"
+
+        # 2. Business Operations (Last 24 Hours)
+        appt_stats = Appointment.objects.filter(created_at__gte=last_24h).aggregate(
+            total=Count("id"),
+            confirmed=Count("id", filter=Q(status=AppointmentStatus.CONFIRMED)),
+            cancelled=Count("id", filter=Q(status=AppointmentStatus.CANCELLED)),
+            rescheduled=Count("id", filter=Q(status=AppointmentStatus.RESCHEDULE_REQUIRED)),
+            completed=Count("id", filter=Q(status=AppointmentStatus.COMPLETED)),
+        )
+
+        pay_stats = Payment.objects.filter(created_at__gte=last_24h).aggregate(
+            total=Count("id"),
+            successful=Count("id", filter=Q(status=PaymentStatus.PAID)),
+            failed=Count("id", filter=Q(status=PaymentStatus.FAILED)),
+            pending=Count("id", filter=Q(status=PaymentStatus.PENDING)),
+        )
+
+        webhook_stats = PaymentWebhookEvent.objects.filter(received_at__gte=last_24h).aggregate(
+            total=Count("id"),
+            processed=Count("id", filter=Q(status=WebhookProcessingStatus.PROCESSED)),
+            failed=Count("id", filter=Q(status=WebhookProcessingStatus.FAILED)),
+            received=Count("id", filter=Q(status=WebhookProcessingStatus.RECEIVED)),
+        )
+
+        # Notification & Reminders Backlog
+        notification_stats = NotificationDelivery.objects.filter(created_at__gte=last_24h).aggregate(
+            total=Count("id"),
+            sent=Count("id", filter=Q(status=DeliveryStatus.SENT)),
+            failed=Count("id", filter=Q(status=DeliveryStatus.FAILED)),
+            processing=Count("id", filter=Q(status=DeliveryStatus.PROCESSING)),
+        )
+        pending_reminders_count = AppointmentReminderSchedule.objects.filter(
+            status="PENDING",
+            scheduled_for__lte=now,
+        ).count()
+
+        # 3. Backup Status Inspection
+        backup_status = {"status": "not_configured", "latest_backup": None}
+        backup_paths = [
+            Path("/var/backups/eazydoc"),
+            settings.BASE_DIR.parent / "backups",
+            Path("./backups"),
+        ]
+        for b_dir in backup_paths:
+            if b_dir.exists() and b_dir.is_dir():
+                dumps = list(b_dir.glob("*.dump")) + list(b_dir.glob("*.sql")) + list(b_dir.glob("*.sql.gz"))
+                if dumps:
+                    latest = max(dumps, key=lambda f: f.stat().st_mtime)
+                    mtime = datetime.fromtimestamp(latest.stat().st_mtime, tz=timezone.utc)
+                    backup_status = {
+                        "status": "healthy" if (now - mtime).total_seconds() < 86400 * 2 else "stale",
+                        "latest_backup": {
+                            "filename": latest.name,
+                            "size_bytes": latest.stat().st_size,
+                            "created_at": mtime.isoformat(),
+                            "age_hours": round((now - mtime).total_seconds() / 3600, 1),
+                        },
+                    }
+                    break
+
+        # 4. Critical Warning Signals
+        warnings = []
+        if db_health["status"] != "ok":
+            warnings.append("CRITICAL: PostgreSQL database connection check failed.")
+        if redis_health["status"] != "ok":
+            warnings.append("WARNING: Redis cache/message broker is currently unreachable.")
+        if webhook_stats["failed"] > 0:
+            warnings.append(f"WARNING: {webhook_stats['failed']} payment webhooks failed in the last 24 hours.")
+        if pending_reminders_count > 50:
+            warnings.append(f"WARNING: Celery Beat reminder backlog high ({pending_reminders_count} overdue reminders).")
+        if notification_stats["failed"] > 10:
+            warnings.append(f"WARNING: High email notification delivery failure count ({notification_stats['failed']} failures).")
+
+        return Response(
+            {
+                "success": True,
+                "timestamp": now.isoformat(),
+                "data": {
+                    "system_health": {
+                        "database": db_health,
+                        "redis": redis_health,
+                        "celery": celery_health,
+                    },
+                    "business_operations_24h": {
+                        "appointments": appt_stats,
+                        "payments": pay_stats,
+                        "webhooks": webhook_stats,
+                        "notifications": {
+                            **notification_stats,
+                            "overdue_pending_reminders": pending_reminders_count,
+                        },
+                    },
+                    "backup_status": backup_status,
+                    "active_warnings": warnings,
                 },
             },
             status=status.HTTP_200_OK,
