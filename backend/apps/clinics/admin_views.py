@@ -1,4 +1,7 @@
+import logging
 from django.utils.dateparse import parse_date
+
+logger = logging.getLogger("apps.clinics")
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
@@ -159,6 +162,12 @@ class AdminClinicApproveView(APIView):
             details={"approved_by": str(request.user.id), "approved_at": str(clinic.approved_at)},
         )
 
+        logger.info(
+            "Clinic approved: %s",
+            clinic.name,
+            extra={"clinic_id": str(clinic.id), "approved_by": str(request.user.id), "status": clinic.status},
+        )
+
         return Response(
             {
                 "success": True,
@@ -218,6 +227,12 @@ class AdminClinicRejectView(APIView):
             details={"reason": reason},
         )
 
+        logger.info(
+            "Clinic rejected: %s",
+            clinic.name,
+            extra={"clinic_id": str(clinic.id), "rejected_by": str(request.user.id), "status": clinic.status},
+        )
+
         return Response(
             {
                 "success": True,
@@ -275,6 +290,12 @@ class AdminClinicSuspendView(APIView):
             actor=request.user,
             request=request,
             details={"reason": reason},
+        )
+
+        logger.info(
+            "Clinic suspended: %s",
+            clinic.name,
+            extra={"clinic_id": str(clinic.id), "suspended_by": str(request.user.id), "status": clinic.status},
         )
 
         return Response(

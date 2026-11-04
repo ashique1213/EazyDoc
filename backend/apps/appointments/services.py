@@ -294,6 +294,12 @@ def book_appointment(
                 patient_note=patient_note.strip() if patient_note else "",
             )
         except IntegrityError as exc:
+            logger.warning(
+                "Booking concurrency conflict on slot for doctor %s at clinic %s",
+                doctor_id,
+                clinic_id,
+                extra={"doctor_id": str(doctor_id), "clinic_id": str(clinic_id)},
+            )
             # Catch PostgreSQL exclusion or unique constraint violations cleanly
             raise SlotUnavailableException(
                 _("This slot was just booked by another patient. Please select another slot.")
@@ -323,6 +329,18 @@ def book_appointment(
                 appointment=appointment,
                 response_status_code=201,
             )
+
+        logger.info(
+            "Appointment successfully booked: %s",
+            booking_ref,
+            extra={
+                "appointment_id": str(appointment.id),
+                "booking_reference": booking_ref,
+                "clinic_id": str(appointment.clinic_id),
+                "doctor_id": str(appointment.doctor_id),
+                "status": appointment.status,
+            },
+        )
 
         # 13. Deferred notification hook
         transaction.on_commit(
@@ -552,6 +570,17 @@ def cancel_appointment(
             )
         )
 
+        logger.info(
+            "Appointment successfully cancelled: %s",
+            locked_appt.booking_reference,
+            extra={
+                "appointment_id": str(locked_appt.id),
+                "booking_reference": locked_appt.booking_reference,
+                "cancelled_by": str(cancelled_by.id),
+                "role": effective_role,
+            },
+        )
+
         return locked_appt
 
 
@@ -766,6 +795,18 @@ def reschedule_appointment(
                 new_start_at=new_start_at.isoformat(),
                 rescheduled_by_id=rescheduled_by.id,
             )
+        )
+
+        logger.info(
+            "Appointment successfully rescheduled: %s",
+            locked_appt.booking_reference,
+            extra={
+                "appointment_id": str(locked_appt.id),
+                "booking_reference": locked_appt.booking_reference,
+                "new_start_at": new_start_at.isoformat(),
+                "rescheduled_by": str(rescheduled_by.id),
+                "role": effective_role,
+            },
         )
 
         return locked_appt

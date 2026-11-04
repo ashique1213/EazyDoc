@@ -1,4 +1,7 @@
+import logging
 from datetime import date, datetime
+
+logger = logging.getLogger("apps.schedules")
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -133,6 +136,16 @@ class ScheduleListCreateView(APIView):
                 "day_of_week": schedule.day_of_week,
                 "start_time": schedule.start_time.strftime("%H:%M"),
                 "end_time": schedule.end_time.strftime("%H:%M"),
+            },
+        )
+
+        logger.info(
+            "Doctor schedule shift created",
+            extra={
+                "schedule_id": str(schedule.id),
+                "clinic_id": str(doctor_clinic.clinic_id),
+                "doctor_id": str(doctor_clinic.doctor_id),
+                "day_of_week": schedule.day_of_week,
             },
         )
 

@@ -1,4 +1,7 @@
+import logging
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
+
+logger = logging.getLogger("apps.accounts")
 from rest_framework import serializers as drf_serializers, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -52,6 +55,11 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+
+        logger.info(
+            "User registered successfully",
+            extra={"user_id": str(user.id), "email": user.email, "role": user.role},
+        )
 
         return Response(
             {
@@ -121,6 +129,11 @@ class LoginView(APIView):
             actor=user,
             request=request,
             details={"email": user.email, "role": user.role},
+        )
+
+        logger.info(
+            "User login successful",
+            extra={"user_id": str(user.id), "email": user.email, "role": user.role},
         )
 
         return response
@@ -197,6 +210,7 @@ class TokenRefreshView(APIView):
         try:
             serializer.is_valid(raise_exception=True)
         except TokenError as e:
+            logger.warning("Token refresh failed: %s", str(e), extra={"reason": str(e)})
             return Response(
                 {
                     "success": False,
@@ -272,6 +286,7 @@ class VerifyEmailView(APIView):
         success, message, _ = verify_email_with_token(token_str, request=request)
 
         if not success:
+            logger.warning("Email verification attempt failed")
             return Response(
                 {
                     "success": False,
@@ -281,6 +296,7 @@ class VerifyEmailView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        logger.info("Email verification attempt succeeded")
         return Response(
             {
                 "success": True,
@@ -345,6 +361,7 @@ class ForgotPasswordView(APIView):
 
         email = serializer.validated_data["email"]
         request_password_reset(email, request=request)
+        logger.info("Password reset requested")
 
         return Response(
             {
@@ -382,6 +399,7 @@ class ResetPasswordView(APIView):
         )
 
         if not success:
+            logger.warning("Password reset attempt failed")
             return Response(
                 {
                     "success": False,
@@ -391,6 +409,7 @@ class ResetPasswordView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        logger.info("Password reset completed successfully")
         return Response(
             {
                 "success": True,

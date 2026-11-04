@@ -1,4 +1,7 @@
+import logging
 import os
+
+logger = logging.getLogger("apps.doctors")
 from django.db.models import Q
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
@@ -166,6 +169,17 @@ class AdminDoctorVerifyView(APIView):
             },
         )
 
+        logger.info(
+            "Doctor verified: %s",
+            doctor.full_name,
+            extra={
+                "doctor_id": str(doctor.id),
+                "registration_number": doctor.registration_number,
+                "verified_by": str(request.user.id),
+                "status": doctor.verification_status,
+            },
+        )
+
         return Response(
             {
                 "success": True,
@@ -221,6 +235,16 @@ class AdminDoctorRejectView(APIView):
             actor=request.user,
             request=request,
             details={"reason": reason, "rejected_by": str(request.user.id)},
+        )
+
+        logger.info(
+            "Doctor rejected: %s",
+            doctor.full_name,
+            extra={
+                "doctor_id": str(doctor.id),
+                "rejected_by": str(request.user.id),
+                "status": doctor.verification_status,
+            },
         )
 
         return Response(
@@ -280,6 +304,16 @@ class AdminDoctorSuspendView(APIView):
             details={"reason": reason, "suspended_by": str(request.user.id)},
         )
 
+        logger.info(
+            "Doctor suspended: %s",
+            doctor.full_name,
+            extra={
+                "doctor_id": str(doctor.id),
+                "suspended_by": str(request.user.id),
+                "status": doctor.verification_status,
+            },
+        )
+
         return Response(
             {
                 "success": True,
@@ -329,6 +363,16 @@ class AdminDoctorReactivateView(APIView):
             actor=request.user,
             request=request,
             details={"reactivated_by": str(request.user.id)},
+        )
+
+        logger.info(
+            "Doctor reactivated: %s",
+            doctor.full_name,
+            extra={
+                "doctor_id": str(doctor.id),
+                "reactivated_by": str(request.user.id),
+                "status": doctor.verification_status,
+            },
         )
 
         return Response(
