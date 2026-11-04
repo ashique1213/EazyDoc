@@ -5,6 +5,7 @@ from django.http import Http404
 from rest_framework import exceptions, status
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
+from config.logging import get_current_request_id
 
 logger = logging.getLogger("apps")
 
@@ -60,20 +61,30 @@ def custom_exception_handler(exc: Exception, context: Dict[str, Any]) -> Respons
             else:
                 formatted_errors[field] = [str(err)]
 
-        response.data = {
+        request_id = get_current_request_id()
+        response_payload = {
             "success": False,
             "message": message,
             "errors": formatted_errors,
         }
+        if request_id:
+            response_payload["request_id"] = request_id
+
+        response.data = response_payload
         return response
 
     # Unhandled 500 exceptions
-    logger.exception(f"Unhandled server exception: {exc}")
+    request_id = get_current_request_id()
+    logger.exception(f"Unhandled server exception: {exc}", extra={"request_id": request_id})
+    error_payload = {
+        "success": False,
+        "message": "An internal server error occurred. Please try again later.",
+        "errors": {},
+    }
+    if request_id:
+        error_payload["request_id"] = request_id
+
     return Response(
-        {
-            "success": False,
-            "message": "An internal server error occurred. Please try again later.",
-            "errors": {},
-        },
+        error_payload,
         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
     )
