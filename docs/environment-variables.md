@@ -10,92 +10,97 @@ This document provides a comprehensive inventory of all environment variables us
 > - **Never Commit Credentials:** `.env`, `.env.staging`, or `.env.production` files containing live secrets must NEVER be committed to Git.
 > - **Secret Separation:** Frontend environment variables (prefixed with `VITE_`) are bundled into client-side JavaScript. **Never put backend secrets, database credentials, or private API keys into frontend variables.**
 > - **Staging Test Isolation:** Staging environments must only use Razorpay test keys (`rzp_test_*`). Live keys (`rzp_live_*`) are blocked at startup.
+> - **Production Guardrails:** Production requires `DEBUG=False`, `SECURE_SSL_REDIRECT=True`, `SESSION_COOKIE_SECURE=True`, `CSRF_COOKIE_SECURE=True`, and a dedicated database.
 
 ---
 
-## 2. Backend Environment Variables (`.env.staging` / `.env`)
+## 2. Environment Comparison Matrix
 
-### 2.1 Core Application & Security
-
-| Variable Name | Required | Default in Staging | Description & Constraints |
+| Variable Name | Development Default | Staging Default | Production Requirement |
 |---|---|---|---|
-| `DEBUG` | Yes | `False` | Must strictly be `False` in staging and production. |
-| `DJANGO_SETTINGS_MODULE` | Yes | `config.settings.staging` | Python module path for settings (`config.settings.staging` or `config.settings.production`). |
-| `SECRET_KEY` | Yes | *None (Must set)* | Cryptographic signing key. Minimum 50 random alphanumeric characters. |
-| `ALLOWED_HOSTS` | Yes | `localhost,127.0.0.1,staging.eazydoc.internal` | Comma-separated list of host/domain names Django can serve. |
-| `CSRF_TRUSTED_ORIGINS` | Yes | `http://localhost,https://localhost,https://staging.eazydoc.internal` | Comma-separated list of trusted origins for CSRF protection on POST/PUT/DELETE requests. |
-| `CORS_ALLOWED_ORIGINS` | Yes | `http://localhost,https://localhost,https://staging.eazydoc.internal` | Comma-separated list of client origins permitted to make cross-origin requests. |
+| `DEBUG` | `True` | `False` | `False` (Mandatory) |
+| `DJANGO_SETTINGS_MODULE` | `config.settings.development` | `config.settings.staging` | `config.settings.production` |
+| `SECRET_KEY` | Development key | 50+ char random staging key | 64+ char high-entropy cryptokey |
+| `ALLOWED_HOSTS` | `localhost,127.0.0.1` | `staging.eazydoc.com` | `eazydoc.com,www.eazydoc.com,api.eazydoc.com` |
+| `DATABASE_NAME` | `eazydoc_db` | `eazydoc_staging_db` | `eazydoc_prod_db` |
+| `DATABASE_USER` | `eazydoc_user` | `eazydoc_staging_user` | `eazydoc_prod_user` |
+| `REDIS_URL` | `redis://localhost:6379/0` | `redis://redis:6379/0` | `redis://redis:6379/0` (Isolated DB) |
+| `RAZORPAY_KEY_ID` | `rzp_test_*` | `rzp_test_*` | `rzp_live_*` (After human signoff) |
+| `SECURE_SSL_REDIRECT` | `False` | `False` | `True` |
+| `SESSION_COOKIE_SECURE`| `False` | `False` | `True` |
+| `CSRF_COOKIE_SECURE` | `False` | `False` | `True` |
+| `JWT_AUTH_COOKIE_SECURE`| `False` | `False` | `True` |
+| `SECURE_HSTS_SECONDS` | `0` | `0` | `31536000` (1 Year) |
+| `EMAIL_BACKEND` | `console.EmailBackend` | `console.EmailBackend` | `smtp.EmailBackend` (Amazon SES) |
+| `LOG_FORMAT` | `verbose` | `json` | `json` |
+| `SENTRY_ENVIRONMENT` | `development` | `staging` | `production` |
 
-### 2.2 Network & SSL / Cookie Flags
+---
 
-| Variable Name | Required | Default in Staging | Description & Constraints |
+## 3. Detailed Variable Specifications
+
+### 3.1 Core Application & Security
+
+| Variable Name | Required | Type | Description & Constraints |
 |---|---|---|---|
-| `STAGING_HTTP_PORT` | No | `80` | Host port mapped to Nginx reverse proxy HTTP. |
-| `STAGING_HTTPS_PORT` | No | `443` | Host port mapped to Nginx reverse proxy HTTPS. |
-| `SECURE_SSL_REDIRECT` | No | `False` | Redirects all HTTP traffic to HTTPS inside Django. Set to `False` if Nginx or ALB handles TLS. |
-| `SESSION_COOKIE_SECURE`| No | `False` | Marks session cookie with `Secure` flag (requires HTTPS). Set `True` if testing full HTTPS. |
-| `CSRF_COOKIE_SECURE` | No | `False` | Marks CSRF cookie with `Secure` flag (requires HTTPS). Set `True` if testing full HTTPS. |
-| `JWT_AUTH_COOKIE_SECURE`| No | `False` | Marks JWT HttpOnly cookies with `Secure` flag. Set `True` when served over HTTPS. |
-| `SECURE_HSTS_SECONDS` | No | `0` | HTTP Strict Transport Security seconds. Keep `0` in staging to avoid browser caching issues. |
+| `DEBUG` | Yes | Boolean | Must strictly be `False` in staging and production. |
+| `DJANGO_SETTINGS_MODULE` | Yes | String | Python module path for settings (`config.settings.staging` or `config.settings.production`). |
+| `SECRET_KEY` | Yes | String | Cryptographic signing key. Minimum 50 random characters. |
+| `ALLOWED_HOSTS` | Yes | Comma-separated | Host/domain names Django can serve. |
+| `CSRF_TRUSTED_ORIGINS` | Yes | Comma-separated | Trusted origins for CSRF protection on mutation requests. |
+| `CORS_ALLOWED_ORIGINS` | Yes | Comma-separated | Client origins permitted for cross-origin API access. |
 
-### 2.3 PostgreSQL Database
+### 3.2 Network & SSL / Cookie Flags
 
-| Variable Name | Required | Default in Staging | Description & Constraints |
+| Variable Name | Required | Default | Description & Constraints |
 |---|---|---|---|
-| `DATABASE_NAME` | Yes | `eazydoc_staging_db` | Name of the PostgreSQL database. |
-| `DATABASE_USER` | Yes | `eazydoc_staging_user` | PostgreSQL database username. |
-| `DATABASE_PASSWORD` | Yes | *None (Must set)* | Password for PostgreSQL user. |
-| `DATABASE_HOST` | Yes | `db` | Database host hostname (container service name `db` in Docker network). |
+| `PROD_HTTP_PORT` | No | `80` | Host port mapped to Nginx reverse proxy HTTP. |
+| `PROD_HTTPS_PORT` | No | `443` | Host port mapped to Nginx reverse proxy HTTPS. |
+| `SECURE_SSL_REDIRECT` | No | `True` in prod | Redirects HTTP traffic to HTTPS. |
+| `SESSION_COOKIE_SECURE`| No | `True` in prod | Transmits session cookie over HTTPS only. |
+| `CSRF_COOKIE_SECURE` | No | `True` in prod | Transmits CSRF cookie over HTTPS only. |
+| `JWT_AUTH_COOKIE_SECURE`| No | `True` in prod | Transmits JWT HttpOnly cookies over HTTPS only. |
+| `SECURE_HSTS_SECONDS` | No | `31536000` | HTTP Strict Transport Security duration. |
+
+### 3.3 Database, Cache & Celery
+
+| Variable Name | Required | Default | Description & Constraints |
+|---|---|---|---|
+| `DATABASE_NAME` | Yes | *e.g. eazydoc_prod_db*| PostgreSQL database name. |
+| `DATABASE_USER` | Yes | *e.g. eazydoc_prod_user*| PostgreSQL username. |
+| `DATABASE_PASSWORD` | Yes | *Secret* | PostgreSQL user password. |
+| `DATABASE_HOST` | Yes | `db` | Database hostname (container name `db` or RDS endpoint). |
 | `DATABASE_PORT` | No | `5432` | PostgreSQL listening port. |
-| `CONN_MAX_AGE` | No | `60` | Persistent database connection lifetime in seconds. |
-| `DATABASE_URL` | No | *Derived* | Optional alternative standard database connection URI. |
+| `CONN_MAX_AGE` | No | `60` | Persistent DB connection lifetime in seconds. |
+| `REDIS_URL` | Yes | `redis://redis:6379/0` | Redis connection URL for caching and channels. |
+| `CELERY_BROKER_URL` | Yes | `redis://redis:6379/0` | Celery message broker URI. |
+| `CELERY_RESULT_BACKEND`| Yes | `redis://redis:6379/1` | Celery task result backend URI (database index 1). |
 
-### 2.4 Redis & Celery
+### 3.4 Razorpay Payment Gateway
 
-| Variable Name | Required | Default in Staging | Description & Constraints |
+| Variable Name | Required | Format | Description & Constraints |
 |---|---|---|---|
-| `REDIS_URL` | Yes | `redis://redis:6379/0` | Connection string for Redis cache & Django Channels layers. |
-| `CELERY_BROKER_URL` | Yes | `redis://redis:6379/0` | Celery task queue message broker URI. |
-| `CELERY_RESULT_BACKEND`| Yes | `redis://redis:6379/1` | Celery task result backend URI (database `1`). |
+| `RAZORPAY_KEY_ID` | Yes | `rzp_test_*` or `rzp_live_*` | Razorpay public key ID. |
+| `RAZORPAY_KEY_SECRET` | Yes | String | Razorpay API secret key for HMAC signature verification. |
+| `RAZORPAY_WEBHOOK_SECRET`| Yes| String | Secret key for verifying incoming webhook signatures. |
+| `RAZORPAY_CURRENCY` | No | `INR` | ISO 4217 currency code. |
 
-### 2.5 Razorpay Payment Gateway
+### 3.5 Storage & Observability
 
-| Variable Name | Required | Default in Staging | Description & Constraints |
+| Variable Name | Required | Default | Description & Constraints |
 |---|---|---|---|
-| `RAZORPAY_KEY_ID` | Yes | `rzp_test_placeholder_key_id` | Razorpay API Key ID. Must start with `rzp_test_`. |
-| `RAZORPAY_KEY_SECRET` | Yes | `placeholder_secret_key_staging` | Razorpay API secret key for HMAC signature verification. |
-| `RAZORPAY_WEBHOOK_SECRET`| Yes | `placeholder_webhook_secret_staging` | Secret used to verify incoming Razorpay webhook payloads. |
-| `RAZORPAY_CURRENCY` | No | `INR` | Three-letter currency code (default: INR). |
-
-### 2.6 Email & Notifications
-
-| Variable Name | Required | Default in Staging | Description & Constraints |
-|---|---|---|---|
-| `EMAIL_BACKEND` | No | `django.core.mail.backends.console.EmailBackend` | Email backend. Defaults to `console` in staging to prevent sending real emails. |
-| `EMAIL_HOST` | No | `localhost` | SMTP host (e.g. Mailpit, Mailgun sandbox, or SendGrid). |
-| `EMAIL_PORT` | No | `1025` | SMTP port. |
-| `EMAIL_HOST_USER` | No | `""` | SMTP username. |
-| `EMAIL_HOST_PASSWORD` | No | `""` | SMTP password. |
-| `EMAIL_USE_TLS` | No | `False` | Whether to use TLS encryption with SMTP. |
-| `DEFAULT_FROM_EMAIL` | No | `EazyDoc Staging <noreply-staging@eazydoc.com>` | Sender address in outgoing system emails. |
-
-### 2.7 Observability & Storage (Optional)
-
-| Variable Name | Required | Default in Staging | Description & Constraints |
-|---|---|---|---|
-| `SENTRY_DSN` | No | `""` | Sentry error tracking DSN (environment automatically tagged as `staging`). |
-| `SENTRY_TRACES_SAMPLE_RATE`| No | `0.2` | Performance tracing sample rate (0.0 to 1.0). |
-| `AWS_STORAGE_BUCKET_NAME`| No | `""` | S3 bucket name if using cloud object storage instead of persistent volume. |
-| `AWS_ACCESS_KEY_ID` | No | `""` | AWS IAM access key ID with S3 read/write permissions. |
-| `AWS_SECRET_ACCESS_KEY`| No | `""` | AWS IAM secret access key. |
-| `AWS_S3_REGION_NAME` | No | `ap-south-1` | AWS S3 region (default: Mumbai). |
+| `EMAIL_BACKEND` | No | `smtp.EmailBackend` | Django email backend implementation. |
+| `EMAIL_HOST` | No | *SMTP host* | Hostname of SMTP mail server. |
+| `DEFAULT_FROM_EMAIL` | No | `EazyDoc <noreply@eazydoc.com>`| Sender address for outgoing emails. |
+| `SENTRY_DSN` | No | *Empty* | Sentry project DSN for error reporting. |
+| `AWS_STORAGE_BUCKET_NAME`| No | *Bucket name* | S3 bucket for uploaded medical documents and media. |
+| `AWS_S3_REGION_NAME` | No | `ap-south-1` | AWS S3 region (Mumbai). |
 
 ---
 
-## 3. Frontend Environment Variables (`frontend/.env.staging`)
+## 4. Frontend Environment Variables (`frontend/.env.production`)
 
-| Variable Name | Required | Default in Staging | Description & Constraints |
+| Variable Name | Required | Production Value | Description |
 |---|---|---|---|
-| `VITE_API_BASE_URL` | Yes | `/api/v1` | Base URL for backend API calls. Relative `/api/v1` is recommended behind Nginx. |
-| `VITE_APP_ENV` | No | `staging` | Environment indicator displayed in staging UI banners or telemetry. |
-
+| `VITE_API_BASE_URL` | Yes | `/api/v1` | Relative API path behind Nginx reverse proxy. |
+| `VITE_APP_ENV` | No | `production` | Environment indicator. |
