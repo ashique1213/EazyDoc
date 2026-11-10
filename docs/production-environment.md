@@ -84,3 +84,4 @@ This document defines the strict physical, logical, credential, and network isol
    - `DATABASE_PASSWORD`: Rotated bi-annually.
    - Razorpay API & Webhook Secrets: Rotated immediately via Razorpay dashboard with 24-hour dual-secret overlap if compromise is suspected.
    - JWT Signing Keys: Enforced 7-day token refresh lifecycle minimizes token exposure window.
+

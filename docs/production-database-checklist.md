@@ -93,3 +93,4 @@ curl -f https://eazydoc.com/api/v1/health/ready/
 > - NEVER drop or recreate the production database to fix an application defect.
 > - NEVER modify patient medical records, consultation notes, or audit history directly via raw SQL `UPDATE` or `DELETE`.
 > - Always execute administrative corrections via Django migrations or validated management commands wrapped in `transaction.atomic()`.
+

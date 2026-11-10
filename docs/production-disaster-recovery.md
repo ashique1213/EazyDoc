@@ -137,3 +137,4 @@ docker stop eazydoc_drill_db && docker rm eazydoc_drill_db
 | **Incident Commander** | Lead DevOps Engineer / SRE | Authorizes DR execution, coordinates failover |
 | **Database Administrator**| Senior Backend Architect | Executes restore scripts, validates row-count checksums |
 | **Communications Lead** | Product Launch Manager | Posts internal status updates, alerts clinic partners |
+

@@ -144,3 +144,4 @@ The following operational conditions must be fulfilled before progressing throug
 | **DevOps / SRE Lead** | DevOps Commander | `APPROVED FOR CONTROLLED PILOT` | _______________________ | 10 Nov 2026 |
 | **Product Launch Manager**| Product Director | `APPROVED FOR CONTROLLED PILOT` | _______________________ | 10 Nov 2026 |
 | **Finance Director** | Finance Lead | `HOLD LIVE KEYS UNTIL PILOT VERIFICATION`| _______________________ | 10 Nov 2026 |
+

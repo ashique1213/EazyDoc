@@ -171,3 +171,4 @@ The EazyDoc platform has passed all architectural, security, tenant isolation, d
 1. Maintain Razorpay test mode during Phase A internal verification.
 2. Obtain written human authorization prior to inserting live `rzp_live_*` payment credentials.
 3. Complete legal review of public privacy and clinic onboarding policies.
+

@@ -70,3 +70,4 @@ This document provides a comprehensive operational checklist for human stakehold
 | **Data Protection Officer (DPO)**| _______________________ | _______________________ | __________ |
 | **Chief Medical / Clinical Lead**| _______________________ | _______________________ | __________ |
 | **Product Launch Manager** | _______________________ | _______________________ | __________ |
+

@@ -140,3 +140,4 @@ If unauthorized cross-tenant data access or credential brute-forcing is detected
 During any rollback or emergency mitigation:
 - **NEVER truncate or purge `apps_audit_logs`, `payments_payment`, `payments_commission_record`, or `appointments_appointment_history`.**
 - Financial and clinical audit logs must remain completely intact for regulatory and forensic post-mortems.
+
