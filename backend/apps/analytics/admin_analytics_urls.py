@@ -20,3 +20,4 @@ urlpatterns = [
     path("reconciliation/", AdminAnalyticsReconciliationView.as_view(), name="reconciliation"),
     path("reports/export/", AdminAnalyticsExportView.as_view(), name="export"),
 ]
+

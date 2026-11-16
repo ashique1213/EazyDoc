@@ -371,3 +371,4 @@ All analytics endpoints accept standard date range filtering:
 - **Permissions**: `HasClinicStaffOrOwnerPermission`
 - **Query Params**: `report_type`: `revenue` | `doctors` | `appointments` | `cancellations`
 - **Response `200 OK`**: Streaming CSV file with masked patient PII.
+

@@ -60,3 +60,4 @@ To prevent patient identifiable information (PII) leakage in analytics exports:
 1. Patient full names are masked in all CSV exports (e.g., `John Doe` -> `John D.`).
 2. Phone numbers and email addresses of patients are strictly excluded from tabular exports.
 3. Only authorized doctors and treating staff can view patient details in clinical record views.
+

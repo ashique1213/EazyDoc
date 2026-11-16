@@ -79,3 +79,4 @@ export const AppointmentVolumeChart: React.FC<AppointmentVolumeChartProps> = ({
     </Card>
   );
 };
+

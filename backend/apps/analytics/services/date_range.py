@@ -121,3 +121,4 @@ def resolve_date_range(
         period=period,
         timezone_str=str(local_tz.zone),
     )
+

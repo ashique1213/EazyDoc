@@ -45,3 +45,4 @@ def get_cached_or_compute(
         logger.warning(f"Cache write failed for key {cache_key}: {e}")
 
     return result
+

@@ -102,3 +102,4 @@ cd frontend
 npm run build
 ```
 *Expected Result*: `tsc -b && vite build` succeeds with `0` errors.
+

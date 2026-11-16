@@ -81,3 +81,4 @@ This guarantees an $O(1)$ query count regardless of the number of clinics or doc
 Large CSV exports are streamed using standard Python `io.StringIO` buffers and chunked generator queries:
 - Querysets utilize `iterator()` or targeted column projections (`values_list` / `select_related`) to prevent holding large querysets in memory simultaneously.
 - UTF-8 BOM encoding ensures immediate, artifact-free opening in Microsoft Excel and Google Sheets.
+

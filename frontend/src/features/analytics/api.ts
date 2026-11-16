@@ -169,3 +169,4 @@ export const analyticsApi = {
     window.URL.revokeObjectURL(url);
   },
 };
+

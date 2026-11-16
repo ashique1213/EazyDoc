@@ -121,3 +121,4 @@ gross_amount = commission_amount + clinic_share
    - Cache keys: `eazydoc:analytics:clinic:<clinic_id>:<metric_type>:<hash_of_params>`.
 3. **Patients & Regular Doctors**:
    - Forbidden from accessing administrative and tenant-wide financial analytics endpoints.
+

@@ -483,3 +483,4 @@ class ClinicAnalyticsExportView(BaseClinicAnalyticsView):
         report_type = data.get("report_type", "appointments")
 
         return export_clinic_csv(clinic, report_type, bounds, doctor_id)
+

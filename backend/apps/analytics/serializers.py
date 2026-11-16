@@ -47,3 +47,4 @@ class ExportReportQuerySerializer(AnalyticsQuerySerializer):
         default="appointments",
     )
     format = serializers.ChoiceField(choices=["csv"], default="csv")
+

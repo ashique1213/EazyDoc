@@ -93,3 +93,4 @@ EazyDoc clearly distinguishes between:
 ### Mandatory Transparency Disclaimer
 Every clinic-facing and administrative financial screen displays the following notice:
 > *"Calculated clinic shares represent internal ledger allocations. Actual clinic bank payouts are 0.00 until explicit payout gateway clearance."*
+
