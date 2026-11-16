@@ -11,6 +11,8 @@ import {
   Calendar,
   Building2,
   FileText,
+  Download,
+  Users,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +31,12 @@ import {
   useClinicFinanceSummary,
   useClinicFinancePayments,
 } from "@/features/clinicOperations";
+import {
+  RevenueTrendsChart,
+  ReportExportDialog,
+  useClinicAnalyticsRevenue,
+  type DateRangePeriod,
+} from "@/features/analytics";
 
 export function ClinicFinancePage() {
   const { activeClinic, activeClinicId, isLoading: isLoadingClinic } = useActiveClinic();
@@ -40,16 +48,26 @@ export function ClinicFinancePage() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [search, setSearch] = useState<string>("");
   const [page, setPage] = useState<number>(1);
+  const [isExportOpen, setIsExportOpen] = useState<boolean>(false);
 
   // Queries
   const summaryParams = {
-    period: period !== "custom" ? period : undefined,
-    from_date: period === "custom" && fromDate ? fromDate : undefined,
-    to_date: period === "custom" && toDate ? toDate : undefined,
+    period: period !== "custom" ? (period as DateRangePeriod) : undefined,
+    date_from: period === "custom" && fromDate ? fromDate : undefined,
+    date_to: period === "custom" && toDate ? toDate : undefined,
   };
 
   const { data: summaryData, isLoading: isLoadingSummary } = useClinicFinanceSummary(
     activeClinicId,
+    {
+      period: period !== "custom" ? period : undefined,
+      from_date: period === "custom" && fromDate ? fromDate : undefined,
+      to_date: period === "custom" && toDate ? toDate : undefined,
+    }
+  );
+
+  const { data: analyticsRevenue } = useClinicAnalyticsRevenue(
+    activeClinicId || "",
     summaryParams
   );
 
@@ -191,6 +209,16 @@ export function ClinicFinancePage() {
                 />
               </div>
             )}
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsExportOpen(true)}
+              className="h-8 gap-1.5 text-xs font-medium border-dashed ml-auto"
+            >
+              <Download className="w-3.5 h-3.5 text-muted-foreground" />
+              <span>Export CSV</span>
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -291,6 +319,67 @@ export function ClinicFinancePage() {
           * Recorded using transaction-time snapshots
         </div>
       </div>
+
+      {/* Clinic Revenue Trends & Doctor Breakdown */}
+      {analyticsRevenue && (
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <RevenueTrendsChart
+              data={analyticsRevenue.daily_trend}
+              title="Daily Clinic Earnings & Collections"
+              description="Daily timeline of gross revenue and net clinic share"
+            />
+          </div>
+          <Card className="border shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                Doctor Revenue Breakdown
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Earnings generated per affiliated practitioner
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto max-h-[280px]">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-muted/50 border-y text-muted-foreground uppercase font-semibold text-[10px] sticky top-0">
+                    <tr>
+                      <th className="py-2 px-3">Doctor</th>
+                      <th className="py-2 px-2 text-right">Visits</th>
+                      <th className="py-2 px-3 text-right">Clinic Share</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {analyticsRevenue.doctor_breakdown.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="py-4 text-center text-muted-foreground">
+                          No doctor revenue recorded.
+                        </td>
+                      </tr>
+                    ) : (
+                      analyticsRevenue.doctor_breakdown.map((d) => (
+                        <tr key={d.doctor_id} className="hover:bg-muted/40">
+                          <td className="py-2 px-3">
+                            <div className="font-semibold text-foreground">{d.doctor_name}</div>
+                            <div className="text-[10px] text-muted-foreground">{d.specialization}</div>
+                          </td>
+                          <td className="py-2 px-2 text-right font-medium text-foreground">
+                            {d.appointments_count}
+                          </td>
+                          <td className="py-2 px-3 text-right font-semibold text-purple-600">
+                            {formatCurrency(d.clinic_share)}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Transactions Ledger Table */}
       <Card>
@@ -465,6 +554,15 @@ export function ClinicFinancePage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Export Report Dialog */}
+      <ReportExportDialog
+        isOpen={isExportOpen}
+        onClose={() => setIsExportOpen(false)}
+        filters={summaryParams}
+        isAdmin={false}
+        clinicId={activeClinic.id}
+      />
     </div>
   );
 }
