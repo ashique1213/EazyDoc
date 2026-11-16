@@ -29,6 +29,13 @@ from .finance_views import (
     ClinicFinancePaymentsListView,
     ClinicFinanceSummaryView,
 )
+from apps.analytics.views import (
+    ClinicAnalyticsAppointmentsView,
+    ClinicAnalyticsDoctorsView,
+    ClinicAnalyticsExportView,
+    ClinicAnalyticsOverviewView,
+    ClinicAnalyticsRevenueView,
+)
 from apps.appointments.views import (
     ClinicAppointmentCancelView,
     ClinicAppointmentCompleteView,
@@ -67,6 +74,13 @@ urlpatterns = [
     # Financial Operations
     path("<uuid:clinic_id>/finance/summary/", ClinicFinanceSummaryView.as_view(), name="clinic-finance-summary"),
     path("<uuid:clinic_id>/finance/payments/", ClinicFinancePaymentsListView.as_view(), name="clinic-finance-payments"),
+
+    # SaaS Analytics & Business Intelligence
+    path("<uuid:clinic_id>/analytics/overview/", ClinicAnalyticsOverviewView.as_view(), name="clinic-analytics-overview"),
+    path("<uuid:clinic_id>/analytics/revenue/", ClinicAnalyticsRevenueView.as_view(), name="clinic-analytics-revenue"),
+    path("<uuid:clinic_id>/analytics/appointments/", ClinicAnalyticsAppointmentsView.as_view(), name="clinic-analytics-appointments"),
+    path("<uuid:clinic_id>/analytics/doctors/", ClinicAnalyticsDoctorsView.as_view(), name="clinic-analytics-doctors"),
+    path("<uuid:clinic_id>/analytics/reports/export/", ClinicAnalyticsExportView.as_view(), name="clinic-analytics-export"),
 
     # Closures & Calendar
     path("<uuid:clinic_id>/closures/", ClinicClosureListCreateView.as_view(), name="clinic-closures-list-create"),

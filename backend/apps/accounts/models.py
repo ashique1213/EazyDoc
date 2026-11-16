@@ -108,6 +108,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         full_name = f"{self.first_name} {self.last_name}".strip()
         return full_name if full_name else self.email
 
+    def get_full_name(self):
+        full_name = f"{self.first_name} {self.last_name}".strip()
+        return full_name if full_name else self.email
+
+    def get_short_name(self):
+        return self.first_name if self.first_name else self.email
+
     @property
     def phone_number(self):
         """Backward compatibility alias for phone."""

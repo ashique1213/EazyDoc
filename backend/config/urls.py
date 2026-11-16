@@ -18,6 +18,7 @@ api_v1_patterns = [
     path("admin/clinics/", include("apps.clinics.admin_urls", namespace="admin-clinics")),
     path("admin/doctors/", include("apps.doctors.admin_urls", namespace="admin-doctors")),
     path("admin/dashboard/", include("apps.analytics.admin_urls", namespace="admin-dashboard")),
+    path("admin/analytics/", include("apps.analytics.admin_analytics_urls", namespace="admin-analytics")),
     path("admin/users/", include("apps.accounts.admin_urls", namespace="admin-users")),
     path("admin/appointments/", include("apps.appointments.admin_urls", namespace="admin-appointments")),
     path("admin/payments/", include("apps.payments.admin_payment_urls", namespace="admin-payments")),
