@@ -59,6 +59,7 @@ LOCAL_APPS = [
     "apps.analytics.apps.AnalyticsConfig",
     "apps.audit_logs.apps.AuditLogsConfig",
     "apps.public.apps.PublicConfig",
+    "apps.subscriptions.apps.SubscriptionsConfig",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -316,5 +317,13 @@ CELERY_BEAT_SCHEDULE = {
     "process-appointment-reminders": {
         "task": "apps.notifications.tasks.process_due_appointment_reminders",
         "schedule": 60.0,  # Run every 60 seconds
+    },
+    "check-expiring-trials": {
+        "task": "apps.subscriptions.tasks.check_expiring_trials_task",
+        "schedule": 86400.0,  # Run daily
+    },
+    "check-subscription-renewals-and-expiry": {
+        "task": "apps.subscriptions.tasks.check_subscription_renewals_and_expiry_task",
+        "schedule": 86400.0,  # Run daily
     },
 }

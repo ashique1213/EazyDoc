@@ -14,6 +14,7 @@ import {
   CreditCard,
   Percent,
   Bell,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -103,6 +104,13 @@ export function DashboardLayout({ roleTitle = "Dashboard" }: DashboardLayoutProp
                 <span>Finance & Ledger</span>
               </Link>
               <Link
+                to="/clinic/subscription"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Zap className="h-4 w-4 text-amber-500" />
+                <span>Subscription & Plans</span>
+              </Link>
+              <Link
                 to="/clinic/settings"
                 className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               >
@@ -179,6 +187,13 @@ export function DashboardLayout({ roleTitle = "Dashboard" }: DashboardLayoutProp
               >
                 <Percent className="h-4 w-4 text-amber-600" />
                 <span>Commission Settings</span>
+              </Link>
+              <Link
+                to="/admin/subscriptions"
+                className="flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Zap className="h-4 w-4 text-purple-600" />
+                <span>SaaS Subscriptions</span>
               </Link>
               <Link
                 to="/admin/audit-logs"

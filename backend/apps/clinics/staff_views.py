@@ -50,6 +50,22 @@ class ClinicStaffListCreateView(APIView):
         if request.user.role != UserRole.SUPER_ADMIN and clinic.owner_id != request.user.id:
             raise PermissionDenied("Only the clinic owner can invite or grant permissions to staff members.")
 
+        # SaaS Subscription Entitlement Check
+        try:
+            from apps.subscriptions.services.entitlements import EntitlementService
+            can_add_stf, err_msg = EntitlementService.can_add_staff(clinic)
+            if not can_add_stf:
+                return Response(
+                    {
+                        "success": False,
+                        "error_code": "PLAN_LIMIT_EXCEEDED",
+                        "message": err_msg,
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        except Exception:
+            pass
+
         serializer = ClinicStaffCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 

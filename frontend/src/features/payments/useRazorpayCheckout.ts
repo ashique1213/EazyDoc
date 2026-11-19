@@ -42,7 +42,7 @@ export function useRazorpayCheckout({ onSuccess, onError }: UseRazorpayCheckoutO
 
       try {
         const isLoaded = await loadRazorpayScript();
-        if (!isLoaded) {
+        if (!isLoaded || !window.Razorpay) {
           throw new Error("Unable to load Razorpay payment gateway. Please check your internet connection.");
         }
 

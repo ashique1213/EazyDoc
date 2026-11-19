@@ -25,6 +25,7 @@ api_v1_patterns = [
     path("admin/commissions/", include("apps.payments.admin_commission_urls", namespace="admin-commissions")),
     path("admin/settings/commission/", include("apps.payments.admin_setting_urls", namespace="admin-commission-settings")),
     path("admin/audit-logs/", include("apps.audit_logs.admin_urls", namespace="admin-audit-logs")),
+    path("admin/subscriptions/", include("apps.subscriptions.admin_urls", namespace="admin-subscriptions")),
     path("doctors/", include("apps.doctors.urls", namespace="doctors")),
     path("patients/", include("apps.patients.urls", namespace="patients")),
     path("schedules/", include("apps.schedules.urls", namespace="schedules")),
@@ -36,6 +37,7 @@ api_v1_patterns = [
     path("documents/", include("apps.documents.urls", namespace="documents")),
     path("reviews/", include("apps.reviews.urls", namespace="reviews")),
     path("analytics/", include("apps.analytics.urls", namespace="analytics")),
+    path("subscriptions/", include("apps.subscriptions.urls", namespace="subscriptions")),
     path("audit/", include("apps.audit_logs.urls", namespace="audit_logs")),
     path("public/", include("apps.public.urls", namespace="public")),
 ]

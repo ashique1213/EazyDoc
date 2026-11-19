@@ -45,6 +45,13 @@ class ClinicListCreateView(APIView):
         serializer.is_valid(raise_exception=True)
         clinic = serializer.save()
 
+        # Initialize SaaS Subscription / Free Trial
+        try:
+            from apps.subscriptions.services.lifecycle import SubscriptionLifecycleService
+            SubscriptionLifecycleService.initialize_clinic_subscription(clinic, triggered_by=request.user)
+        except Exception:
+            pass
+
         log_audit_event(
             action="CLINIC_REGISTERED",
             resource_type="Clinic",
@@ -435,6 +442,21 @@ class ClinicDoctorInvitationView(APIView):
                     )
 
                 # Re-invitation workflow for REJECTED or REMOVED associations
+                try:
+                    from apps.subscriptions.services.entitlements import EntitlementService
+                    can_add_doc, err_msg = EntitlementService.can_add_doctor(clinic)
+                    if not can_add_doc:
+                        return Response(
+                            {
+                                "success": False,
+                                "error_code": "PLAN_LIMIT_EXCEEDED",
+                                "message": err_msg,
+                            },
+                            status=status.HTTP_403_FORBIDDEN,
+                        )
+                except Exception:
+                    pass
+
                 previous_status = association.status
                 association.status = DoctorClinicStatus.INVITED
                 association.invited_by = request.user
@@ -464,6 +486,21 @@ class ClinicDoctorInvitationView(APIView):
                     },
                 )
             else:
+                try:
+                    from apps.subscriptions.services.entitlements import EntitlementService
+                    can_add_doc, err_msg = EntitlementService.can_add_doctor(clinic)
+                    if not can_add_doc:
+                        return Response(
+                            {
+                                "success": False,
+                                "error_code": "PLAN_LIMIT_EXCEEDED",
+                                "message": err_msg,
+                            },
+                            status=status.HTTP_403_FORBIDDEN,
+                        )
+                except Exception:
+                    pass
+
                 association = DoctorClinic.objects.create(
                     doctor=doctor,
                     clinic=clinic,

@@ -20,6 +20,7 @@ import { ClinicDoctorsPage } from "@/pages/clinic/ClinicDoctorsPage";
 import { ClinicStaffPage } from "@/pages/clinic/ClinicStaffPage";
 import { ClinicFinancePage } from "@/pages/clinic/ClinicFinancePage";
 import { ClinicSettingsPage } from "@/pages/clinic/ClinicSettingsPage";
+import { ClinicSubscriptionPage } from "@/pages/clinic/ClinicSubscriptionPage";
 import { ClinicProvider } from "@/features/clinicOperations";
 import DoctorPage from "@/pages/DoctorPage";
 import DoctorProfilePage from "@/pages/doctor/DoctorProfilePage";
@@ -37,6 +38,7 @@ import AdminAppointmentsPage from "@/pages/admin/AdminAppointmentsPage";
 import AdminFinancePage from "@/pages/admin/AdminFinancePage";
 import AdminCommissionSettingsPage from "@/pages/admin/AdminCommissionSettingsPage";
 import AdminAuditLogsPage from "@/pages/admin/AdminAuditLogsPage";
+import AdminSubscriptionsPage from "@/pages/admin/AdminSubscriptionsPage";
 
 import { ProtectedRoute } from "@/features/auth";
 
@@ -160,6 +162,10 @@ export const router = createBrowserRouter([
         element: <ClinicFinancePage />,
       },
       {
+        path: "subscription",
+        element: <ClinicSubscriptionPage />,
+      },
+      {
         path: "settings",
         element: <ClinicSettingsPage />,
       },
@@ -272,6 +278,10 @@ export const router = createBrowserRouter([
       {
         path: "settings/commission",
         element: <AdminCommissionSettingsPage />,
+      },
+      {
+        path: "subscriptions",
+        element: <AdminSubscriptionsPage />,
       },
       {
         path: "audit-logs",
